@@ -1,4 +1,4 @@
-package com.broadcast.client;
+package main.java.com.broadcast.client;
 
 import java.io.*;
 import java.net.*;
