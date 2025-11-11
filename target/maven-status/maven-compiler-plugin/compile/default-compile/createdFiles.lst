@@ -1,2 +1,4 @@
-com/broadcast/client/SimpleClient.class
-com/broadcast/client/ConsoleClient.class
+com\broadcast\client\MainApp.class
+com\broadcast\client\ConsoleClient.class
+com\broadcast\client\SimpleClient.class
+com\desktop\controllerStart.class

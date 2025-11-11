@@ -1,4 +1,4 @@
-package main. java.com.broadcast.client;
+package com.broadcast.client;
 
 import java.io.*;
 import java.net.*;
@@ -20,7 +20,6 @@ public class SimpleClient extends JFrame {
             System.out.println("💡 Ejecuta: ./scripts/console-client.sh para modo consola");
             System.exit(1);
         }
-        
         initializeUI();
         connectToServer();
     }
