@@ -1,5 +1,6 @@
-package com.broadcast.client;
+package com.spacepong.desktop;
 
+import javafx.application.Platform;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.drafts.Draft_6455;
 import org.java_websocket.handshake.ServerHandshake;
@@ -23,22 +24,9 @@ public class UtilsWS {
     private Consumer<String> onCloseCallBack;
     private Consumer<String> onErrorCallBack;
 
-    // Flag para saber si estamos en entorno gráfico
-    private boolean isJavaFXAvailable = false;
-
     private UtilsWS(String location) {
         this.location = location;
-        checkJavaFXAvailability();
         createNewWebSocketClient();
-    }
-
-    private void checkJavaFXAvailability() {
-        try {
-            Class.forName("javafx.application.Platform");
-            isJavaFXAvailable = true;
-        } catch (ClassNotFoundException e) {
-            isJavaFXAvailable = false;
-        }
     }
 
     private void createNewWebSocketClient() {
@@ -47,20 +35,19 @@ public class UtilsWS {
 
                 @Override
                 public void onOpen(ServerHandshake handshake) {
-                    String message = "✅ Conectado al servidor: " + getURI();
+                    String message = "WS connected to: " + getURI();
                     System.out.println(message);
                     runLaterIfSet(onOpenCallBack, message);
                 }
 
                 @Override
                 public void onMessage(String message) {
-                    System.out.println("📨 Mensaje recibido: " + message);
                     runLaterIfSet(onMessageCallBack, message);
                 }
 
                 @Override
                 public void onClose(int code, String reason, boolean remote) {
-                    String message = "🔌 Desconectado: " + reason;
+                    String message = "WS closed: " + reason + " (remote=" + remote + ")";
                     System.out.println(message);
                     runLaterIfSet(onCloseCallBack, message);
 
@@ -71,13 +58,12 @@ public class UtilsWS {
 
                 @Override
                 public void onError(Exception e) {
-                    String message = "❌ Error: " + e.getMessage();
+                    String message = "WS error: " + e.getMessage();
                     System.out.println(message);
                     runLaterIfSet(onErrorCallBack, message);
 
-                    if (!exitRequested.get() && 
-                        (e.getMessage().contains("Connection refused") || 
-                         e.getMessage().contains("failed to connect"))) {
+                    if (!exitRequested.get() &&
+                        (message.contains("Connection refused") || message.contains("Connection reset"))) {
                         scheduleReconnect();
                     }
                 }
@@ -86,44 +72,38 @@ public class UtilsWS {
             this.client.connect();
 
         } catch (URISyntaxException e) {
-            System.err.println("❌ Error: URI inválida -> " + location);
+            System.err.println("WS Error: invalid URI -> " + location);
         }
     }
 
     private void runLaterIfSet(Consumer<String> callback, String msg) {
         if (callback != null) {
-            if (isJavaFXAvailable) {
-                // Usar JavaFX si está disponible
-                try {
-                    javafx.application.Platform.runLater(() -> callback.accept(msg));
-                } catch (IllegalStateException e) {
-                    // Si JavaFX no está inicializado, ejecutar directamente
-                    callback.accept(msg);
-                }
-            } else {
-                // Modo consola - ejecutar directamente
-                callback.accept(msg);
-            }
+            Platform.runLater(() -> callback.accept(msg));
         }
     }
 
     private void scheduleReconnect() {
         if (!exitRequested.get()) {
-            System.out.println("🔄 Reconectando en 5 segundos...");
+            System.out.println("WS scheduling reconnect in 5 seconds...");
             scheduler.schedule(this::reconnect, 5, TimeUnit.SECONDS);
         }
     }
 
     private void reconnect() {
         if (exitRequested.get()) return;
-        System.out.println("🔄 Reconectando...");
+
+        System.out.println("WS reconnecting to: " + this.location);
+
         try {
             if (client != null && client.isOpen()) {
-                client.close();
+                client.closeBlocking();
             }
         } catch (Exception ignored) {}
+
         createNewWebSocketClient();
     }
+
+    // ---- Public methods ----
 
     public static UtilsWS getSharedInstance(String location) {
         if (sharedInstance == null || !sharedInstance.location.equals(location)) {
@@ -136,34 +116,38 @@ public class UtilsWS {
     }
 
     public void onOpen(Consumer<String> callback) { this.onOpenCallBack = callback; }
+
     public void onMessage(Consumer<String> callback) { this.onMessageCallBack = callback; }
+
     public void onClose(Consumer<String> callback) { this.onCloseCallBack = callback; }
+
     public void onError(Consumer<String> callback) { this.onErrorCallBack = callback; }
 
     public void safeSend(String text) {
         try {
             if (client != null && client.isOpen()) {
                 client.send(text);
-                System.out.println("📤 Enviado: " + text);
             } else {
-                System.out.println("⚠️ No conectado, reconectando...");
+                System.out.println("WS Warning: not connected, scheduling reconnect...");
                 scheduleReconnect();
             }
         } catch (Exception e) {
-            System.err.println("❌ Error enviando: " + e.getMessage());
+            System.err.println("WS Error sending message: " + e.getMessage());
         }
     }
 
     public void forceExit() {
+        System.out.println("WS Closing...");
         exitRequested.set(true);
         try {
-            if (client != null) {
-                client.close();
+            if (client != null && !client.isClosed()) {
+                client.closeBlocking();
             }
         } catch (Exception e) {
-            System.out.println("Error cerrando: " + e.getMessage());
+            System.out.println("WS Interrupted while closing: " + e.getMessage());
+            Thread.currentThread().interrupt();
         } finally {
-            scheduler.shutdown();
+            scheduler.shutdownNow();
         }
     }
 
@@ -175,6 +159,7 @@ public class UtilsWS {
         if (sharedInstance != null) {
             sharedInstance.forceExit();
             sharedInstance = null;
+            exitRequested.set(false);
         }
     }
 }

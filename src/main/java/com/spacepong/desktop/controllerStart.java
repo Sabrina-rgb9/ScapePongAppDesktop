@@ -1,4 +1,4 @@
-package com.desktop;
+package com.spacepong.desktop;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;

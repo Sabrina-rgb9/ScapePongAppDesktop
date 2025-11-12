@@ -1,5 +1,4 @@
 #!/bin/bash
-# console-client.sh - Cliente en modo consola
 
 cd "$(dirname "$0")/.."
 
