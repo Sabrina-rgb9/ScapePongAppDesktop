@@ -1,11 +1,5 @@
 package com.spacepong.desktop;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.animation.PauseTransition;
@@ -17,8 +11,7 @@ import javafx.util.Duration;
 public class Main extends Application {
 
     public static UtilsWS wsClient;
-
-    public static String clientName = "";
+    public static ctrlStart ctrlStart;
 
     public static void main(String[] args) {
         // Iniciar app JavaFX   
@@ -28,15 +21,21 @@ public class Main extends Application {
     @Override
     public void start(Stage stage) throws Exception {
 
-        final int windowWidth = 400;
-        final int windowHeight = 300;
+        final int windowWidth = 900;
+        final int windowHeight = 600;
 
-        // Configuración básica de la escena
-        Scene scene = new Scene(new javafx.scene.layout.StackPane(), windowWidth, windowHeight);
+        // Inicializar el sistema de vistas usando UtilsViews
+        UtilsViews.initialize();
+        
+        // Obtener el controlador de la vista Start
+        ctrlStart = UtilsViews.getStartController();
+
+        // Crear la escena con el contenedor padre de UtilsViews
+        Scene scene = new Scene(UtilsViews.getParentContainer(), windowWidth, windowHeight);
         
         stage.setScene(scene);
-        stage.onCloseRequestProperty(); // Call close method when closing window
-        stage.setTitle("JavaFX");
+        stage.onCloseRequestProperty().set(e -> stop()); // Call close method when closing window
+        stage.setTitle("SpacePong");
         stage.setMinWidth(windowWidth);
         stage.setMinHeight(windowHeight);
         stage.show();
@@ -57,58 +56,59 @@ public class Main extends Application {
         pause.play();
     }
 
-    public static <T> List<T> jsonArrayToList(JSONArray array, Class<T> clazz) {
-        List<T> list = new ArrayList<>();
-        for (int i = 0; i < array.length(); i++) {
-            T value = clazz.cast(array.get(i));
-            list.add(value);
+    public static void connectToServer() {
+
+        // Obtener la URL del archivo de configuración
+        String serverUrl = getServerUrlFromConfig();
+        
+        if (serverUrl == null || serverUrl.isEmpty()) {
+            System.err.println("No se encontró URL de servidor en la configuración");
+            return;
         }
-        return list;
-    }
 
-    public static void connectToServer(String protocol, String host, String port) {
-
+        System.out.println("Conectando a: " + serverUrl);
+    
         pauseDuring(1500, () -> { // Give time to show connecting message ...
-            wsClient = UtilsWS.getSharedInstance(protocol + "://" + host + ":" + port);
+
+            wsClient = UtilsWS.getSharedInstance(serverUrl);
     
             wsClient.onMessage((response) -> { Platform.runLater(() -> { wsMessage(response); }); });
             wsClient.onError((response) -> { Platform.runLater(() -> { wsError(response); }); });
         });
     }
+
+    private static String getServerUrlFromConfig() {
+        try {
+            java.nio.file.Path configPath = java.nio.file.Paths.get("config.json");
+            if (java.nio.file.Files.exists(configPath)) {
+                String content = new String(java.nio.file.Files.readAllBytes(configPath));
+                org.json.JSONObject config = new org.json.JSONObject(content);
+                if (config.has("url")) {
+                    return config.getString("url");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error leyendo configuración: " + e.getMessage());
+        }
+        return null;
+    }
    
     private static void wsMessage(String response) {
+        System.out.println("Mensaje del servidor: " + response);
         
-        // System.out.println(response);
-        
-        JSONObject msgObj = new JSONObject(response);
-        switch (msgObj.getString("type")) {
-            case "serverData":
-                clientName = msgObj.getString("clientName");
-                
-                System.out.println("Connected as: " + clientName);
-                break;
-            
-            case "countdown":
-                int value = msgObj.getInt("value");
-                String txt = String.valueOf(value);
-                if (value == 0) {
-                    txt = "GO";
-                }
-                System.out.println("Countdown: " + txt);
-                break;
-                
-            default:
-                System.out.println("Message received: " + msgObj.getString("type"));
-                break;
-        }
+        // Aquí puedes manejar los mensajes del servidor según sea necesario
+        // Por ejemplo, procesar datos del juego o cambiar estados
     }
 
     private static void wsError(String response) {
-        String connectionRefused = "Connection refused";
-        if (response.indexOf(connectionRefused) != -1) {
-            System.out.println("Connection error: " + connectionRefused);
-        } else {
-            System.out.println("WebSocket error: " + response);
+        System.err.println("Error de conexión: " + response);
+        
+        // Mostrar error en la interfaz si es necesario
+        if (ctrlStart != null) {
+            // Puedes agregar un método en ctrlStart para mostrar errores
+            Platform.runLater(() -> {
+                // ctrlStart.mostrarError("Error de conexión: " + response);
+            });
         }
     }
 }
