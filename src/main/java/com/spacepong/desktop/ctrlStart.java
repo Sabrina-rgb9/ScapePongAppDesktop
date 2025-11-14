@@ -8,7 +8,7 @@ import javafx.scene.control.TextField;
 import javafx.event.ActionEvent;
 import javafx.scene.text.Font;
 
-public class controllerStart {
+public class ctrlStart {
 
     @FXML private TextField nameField;
     @FXML private TextField protocolField;
@@ -29,9 +29,6 @@ public class controllerStart {
         // Cargar y aplicar la fuente Solar Space
         loadAndApplyFont();
         
-        // Configurar validación básica
-        setupFieldValidation();
-        
         // Valores por defecto
         setDefaultValues();
     }
@@ -47,9 +44,6 @@ public class controllerStart {
             // Aplicar la fuente a todos los elementos
             if (configLabel != null) configLabel.setFont(Font.font(fontFamily, 36));
             if (nameLabel != null) nameLabel.setFont(Font.font(fontFamily, 16));
-            if (protocolLabel != null) protocolLabel.setFont(Font.font(fontFamily, 16));
-            if (hostLabel != null) hostLabel.setFont(Font.font(fontFamily, 16));
-            if (portLabel != null) portLabel.setFont(Font.font(fontFamily, 16));
             if (desarrolladoLabel != null) desarrolladoLabel.setFont(Font.font(fontFamily, 12));
             if (autoresLabel != null) autoresLabel.setFont(Font.font(fontFamily, 14));
             if (confirmButton != null) confirmButton.setFont(Font.font(fontFamily, 16));
@@ -61,9 +55,6 @@ public class controllerStart {
 
     private void setDefaultValues() {
         nameField.setText("Jugador");
-        protocolField.setText("TCP");
-        hostField.setText("localhost");
-        portField.setText("8080");
     }
 
     @FXML
@@ -71,52 +62,18 @@ public class controllerStart {
         if (validateInput()) {
             System.out.println("Conectando...");
             System.out.println("Nombre: " + nameField.getText());
-            System.out.println("Protocolo: " + protocolField.getText());
-            System.out.println("Host: " + hostField.getText());
-            System.out.println("Puerto: " + portField.getText());
             
             showSuccess("Conexión establecida correctamente");
         }
     }
 
-    private void setupFieldValidation() {
-        // Solo validar que el puerto sean números
-        portField.textProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue.matches("\\d*")) {
-                portField.setText(newValue.replaceAll("[^\\d]", ""));
-            }
-        });
-    }
 
     private boolean validateInput() {
         if (nameField.getText().trim().isEmpty()) {
             showError("Error", "El nombre no puede estar vacío");
             return false;
         }
-        if (protocolField.getText().trim().isEmpty()) {
-            showError("Error", "El protocolo no puede estar vacío");
-            return false;
-        }
-        if (hostField.getText().trim().isEmpty()) {
-            showError("Error", "El host no puede estar vacío");
-            return false;
-        }
-        if (portField.getText().trim().isEmpty()) {
-            showError("Error", "El puerto no puede estar vacío");
-            return false;
-        }
-        
-        try {
-            int port = Integer.parseInt(portField.getText());
-            if (port < 1 || port > 65535) {
-                showError("Error", "El puerto debe estar entre 1 y 65535");
-                return false;
-            }
-        } catch (NumberFormatException e) {
-            showError("Error", "El puerto debe ser un número válido");
-            return false;
-        }
-        
+
         return true;
     }
 

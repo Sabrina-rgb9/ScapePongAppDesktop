@@ -57,43 +57,19 @@
                              prefWidth="350"
                              prefHeight="40"/>
                 </VBox>
-                
-                <!-- Campo Protocol -->
+
+                                <!-- Campo URL -->
                 <VBox spacing="8">
-                    <Label fx:id="protocolLabel"
-                           text="PROTOCOLO" 
+                    <Label fx:id="nameLabel"
+                           text="URL" 
                            style="-fx-text-fill: #bddddd;"/>
-                    <TextField fx:id="protocolField" 
-                             promptText="Ej: TCP/UDP"
+                    <TextField fx:id="nameField" 
+                             promptText="Ingresa tu nombre URL"
                              style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;"
                              prefWidth="350"
                              prefHeight="40"/>
                 </VBox>
-                
-                <!-- Campo Host -->
-                <VBox spacing="8">
-                    <Label fx:id="hostLabel"
-                           text="HOST" 
-                           style="-fx-text-fill: #bddddd;"/>
-                    <TextField fx:id="hostField" 
-                             promptText="Ej: localhost"
-                             style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;"
-                             prefWidth="350"
-                             prefHeight="40"/>
-                </VBox>
-                
-                <!-- Campo Port -->
-                <VBox spacing="8">
-                    <Label fx:id="portLabel"
-                           text="PUERTO" 
-                           style="-fx-text-fill: #bddddd;"/>
-                    <TextField fx:id="portField" 
-                             promptText="Ej: 8080"
-                             style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;"
-                             prefWidth="350"
-                             prefHeight="40"/>
-                </VBox>
-                
+
             </VBox>
             
             <!-- Créditos -->
