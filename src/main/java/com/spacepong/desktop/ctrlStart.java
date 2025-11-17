@@ -30,8 +30,7 @@ public class ctrlStart {
     // Ruta relativa al directorio del proyecto
     private static final String CONFIG_DIR = "assets/data";
     private static final String CONFIG_FILE = CONFIG_DIR + "/config.json";
-    private static final String DEFAULT_URL = "wss://matrixplay6.ieti.site:443";
-
+private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTTP y puerto 3000
     @FXML
     private void initialize() {
         // Cargar y aplicar la fuente Solar Space
@@ -205,17 +204,18 @@ public class ctrlStart {
                 return;
             }
             
-            // 4. Iniciar la conexión WebSocket
+    // 4. Iniciar la conexión WebSocket al servidor SpacePong
             String playerName = nameField.getText().trim();
-            String serverUrl = "wss://matrixplay6.ieti.site:443";
+            String serverUrl = "ws://localhost:3000"; // Servidor local en puerto 3000
             
             boolean connectionStarted = Main.connectToServer(serverUrl, playerName);
             
             if (!connectionStarted) {
                 System.err.println("❌ No se pudo iniciar la conexión WebSocket");
                 UtilsViews.showStartViewWithAnimation();
-                showError("Error de Conexión", "No se pudo iniciar la conexión con el servidor");
+                showError("Error de Conexión", "No se pudo conectar al servidor SpacePong en localhost:3000");
             }
+            
             
         } catch (Exception e) {
             System.err.println("❌ Error en showWaitingRoom: " + e.getMessage());

@@ -2,22 +2,20 @@ package com.spacepong.desktop;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import javafx.animation.PauseTransition;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class Main extends Application {
 
     public static UtilsWS wsClient;
     public static ctrlStart ctrlStart;
-    public static CtrlWait CtrlWait;
+    public static CtrlWait ctrlWait;
     
     public static String clientName = "";
     public static String serverUrl = "";
@@ -32,6 +30,16 @@ public class Main extends Application {
         }
     }
 
+    // ✅ MÉTODO PARA DEBUG - MOSTRAR INFORMACIÓN DEL SERVIDOR
+    public static void printServerInfo() {
+        System.out.println("=" .repeat(50));
+        System.out.println("🔍 INFORMACIÓN DEL SERVIDOR");
+        System.out.println("📡 URL: " + serverUrl);
+        System.out.println("👤 Jugador: " + clientName);
+        System.out.println("🔗 WebSocket conectado: " + (wsClient != null && wsClient.isOpen()));
+        System.out.println("=" .repeat(50));
+    }
+    
     @Override
     public void start(Stage stage) throws Exception {
         System.out.println("Inicializando JavaFX...");
@@ -45,9 +53,9 @@ public class Main extends Application {
             
             // Obtener los controladores
             ctrlStart = UtilsViews.getStartController();
-            CtrlWait = UtilsViews.getWaitController();
-
-            if (CtrlWait == null) {
+            ctrlWait = UtilsViews.getWaitController();
+            
+            if (ctrlWait == null) {
                 System.err.println("⚠️ AVISO: No se pudo cargar la vista de Waiting Room");
                 System.err.println("⚠️ El botón CONECTAR no funcionará hasta que se solucione");
             } else {
@@ -83,10 +91,12 @@ public class Main extends Application {
 
     @Override
     public void stop() { 
+        System.out.println("Cerrando aplicación...");
         if (wsClient != null) {
             wsClient.forceExit();
         }
-        System.exit(1); // Kill all executor services
+        Platform.exit();
+        System.exit(0);
     }
 
     public static void pauseDuring(long milliseconds, Runnable action) {
@@ -95,6 +105,7 @@ public class Main extends Application {
         pause.play();
     }
 
+    // ✅ MÉTODO DE CONEXIÓN ADAPTADO AL SERVIDOR
     public static boolean connectToServer(String url, String playerName) {
         if (url == null || url.isEmpty() || playerName == null || playerName.isEmpty()) {
             System.err.println("URL o nombre de jugador no válidos");
@@ -104,16 +115,23 @@ public class Main extends Application {
         clientName = playerName;
         serverUrl = url;
 
-        System.out.println("🎯 Iniciando conexión WebSocket...");
+        System.out.println("🎯 Iniciando conexión WebSocket al servidor SpacePong...");
         System.out.println("🔗 URL: " + serverUrl);
         System.out.println("👤 Jugador: " + clientName);
         
-        // ✅ LA VISTA YA DEBERÍA ESTAR EN WAITING ROOM
+        // ✅ ACTUALIZAR WAITING ROOM SI ESTÁ DISPONIBLE
+        if (ctrlWait != null) {
+            ctrlWait.updatePlayer(0, clientName, true);
+            ctrlWait.updateTitle("Conectando al servidor SpacePong...");
+            ctrlWait.updateOverallStatus();
+        }
         
         pauseDuring(1000, () -> {
             try {
+                // 1. Crear instancia de UtilsWS
                 wsClient = UtilsWS.getSharedInstance(serverUrl);
                 
+                // 2. Configurar TODOS los callbacks
                 wsClient.onOpen((message) -> {
                     Platform.runLater(() -> {
                         System.out.println("✅ Conexión WebSocket ABIERTA: " + message);
@@ -121,36 +139,76 @@ public class Main extends Application {
                     });
                 });
                 
-                // ... resto de callbacks igual
+                wsClient.onMessage((response) -> { 
+                    Platform.runLater(() -> { 
+                        System.out.println("📨 Mensaje CRUDO del servidor: " + response);
+                        wsMessage(response); 
+                    }); 
+                });
+                
+                wsClient.onError((response) -> { 
+                    Platform.runLater(() -> { 
+                        System.err.println("❌ Error WebSocket: " + response);
+                        wsError(response); 
+                    }); 
+                });
+                
+                wsClient.onClose((response) -> {
+                    Platform.runLater(() -> {
+                        System.out.println("🔌 Conexión CERRADA: " + response);
+                        onConnectionClose();
+                    });
+                });
+                
+                System.out.println("🔄 Cliente WebSocket configurado, conectando...");
                 
             } catch (Exception e) {
                 System.err.println("💥 Error creando cliente WebSocket: " + e.getMessage());
                 e.printStackTrace();
+                
+                Platform.runLater(() -> {
+                    if (ctrlWait != null) {
+                        ctrlWait.updateTitle("Error de conexión");
+                        ctrlWait.updatePlayer(0, clientName, false);
+                    }
+                    
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error de Conexión");
+                    alert.setHeaderText("No se pudo conectar al servidor SpacePong");
+                    alert.setContentText("Error: " + e.getMessage() + 
+                                    "\n\nAsegúrate de que:\n• El servidor esté ejecutándose en puerto 3000\n• La URL sea: ws://localhost:3000");
+                    alert.showAndWait();
+                });
             }
         });
         
         return true;
     }
 
+    // almacenar jugadores disponibles y los jugadores conectados al servidor 
+
     private static void onConnectionOpen() {
-        System.out.println("🎉 ¡CONECTADO al servidor!");
+        System.out.println("🎉 ¡CONECTADO al servidor SpacePong!");
         
         // ✅ ACTUALIZAR WAITING ROOM
-        if (CtrlWait != null) {
-            CtrlWait.updateTitle("Conectado - Esperando jugadores...");
-            CtrlWait.updatePlayer(0, clientName, true);
+        if (ctrlWait != null) {
+            ctrlWait.updateTitle("Conectado - Esperando jugadores...");
+            ctrlWait.updatePlayer(0, clientName, true);
+            ctrlWait.updateOverallStatus();
         }
         
-        sendJoinMessage();
+        // ✅ ENVIAR SOLICITUD DE CONFIGURACIÓN Y UNIÓN
+        sendConfigurationRequest();
+        sendJoinMessage(); // ✅ NUEVO: ENVIAR MENSAJE DE UNIÓN
     }
 
+    // ✅ MÉTODO PARA ENVIAR MENSAJE DE UNIÓN
     private static void sendJoinMessage() {
         if (wsClient != null && wsClient.isOpen()) {
             try {
                 JSONObject joinMessage = new JSONObject();
                 joinMessage.put("type", "join");
                 joinMessage.put("playerName", clientName);
-                joinMessage.put("timestamp", System.currentTimeMillis());
                 
                 String messageStr = joinMessage.toString();
                 wsClient.safeSend(messageStr);
@@ -159,20 +217,41 @@ public class Main extends Application {
             } catch (Exception e) {
                 System.err.println("Error enviando mensaje join: " + e.getMessage());
             }
-        } else {
-            System.err.println("❌ No se puede enviar join - WebSocket no conectado");
         }
     }
 
+    // ✅ MÉTODO PARA ENVIAR SOLICITUD DE CONFIGURACIÓN (según el servidor)
+    private static void sendConfigurationRequest() {
+        if (wsClient != null && wsClient.isOpen()) {
+            try {
+                JSONObject configRequest = new JSONObject();
+                configRequest.put("type", "requestConfiguration");
+                
+                String messageStr = configRequest.toString();
+                wsClient.safeSend(messageStr);
+                System.out.println("📤 Solicitud de configuración enviada: " + messageStr);
+                
+            } catch (Exception e) {
+                System.err.println("Error enviando solicitud de configuración: " + e.getMessage());
+            }
+        } else {
+            System.err.println("❌ No se puede enviar solicitud - WebSocket no conectado");
+        }
+    }
+
+
+
+    // ✅ MÉTODO CUANDO LA CONEXIÓN SE CIERRA
     private static void onConnectionClose() {
         System.out.println("🔌 Desconectado del servidor matrixplay6");
         
-        // Resetear la waiting room
-        if (CtrlWait != null) {
-            CtrlWait.resetWaitingRoom();
+        // ✅ RESETEAR WAITING ROOM
+        if (ctrlWait != null) {
+            ctrlWait.resetWaitingRoom();
+            ctrlWait.updateTitle("Conexión perdida");
         }
         
-        // Mostrar mensaje al usuario
+        // ✅ MOSTRAR MENSAJE AL USUARIO
         Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.WARNING);
             alert.setTitle("Conexión Perdida");
@@ -182,148 +261,343 @@ public class Main extends Application {
         });
     }
 
-    private static String getServerUrlFromConfig() {
-        try {
-            java.nio.file.Path configPath = java.nio.file.Paths.get("config.json");
-            if (java.nio.file.Files.exists(configPath)) {
-                String content = new String(java.nio.file.Files.readAllBytes(configPath));
-                org.json.JSONObject config = new org.json.JSONObject(content);
-                if (config.has("url")) {
-                    return config.getString("url");
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Error leyendo configuración: " + e.getMessage());
-        }
-        return null;
-    }
-   
+    // ✅ ACTUALIZA EL MÉTODO wsMessage PARA MANEJAR LOS NUEVOS TIPOS:
     private static void wsMessage(String response) {
         try {
-            System.out.println("📨 Procesando mensaje: " + response);
+            System.out.println("📨 Mensaje del servidor SpacePong: " + response);
             
-            JSONObject msgObj = new JSONObject(response);
-            String messageType = msgObj.optString("type", "unknown");
-            
-            System.out.println("🔍 Tipo de mensaje: " + messageType);
-            
-            switch (messageType) {
-                case "welcome":
-                    handleWelcomeMessage(msgObj);
-                    break;
-                    
-                case "players":
-                case "playerList":
-                    handlePlayerList(msgObj);
-                    break;
-                    
-                case "countdown":
-                    handleCountdown(msgObj);
-                    break;
-                    
-                case "gameStart":
-                    handleGameStart(msgObj);
-                    break;
-                    
-                case "error":
-                    handleErrorMessage(msgObj);
-                    break;
-                    
-                default:
-                    System.out.println("❓ Mensaje no manejado - Tipo: " + messageType);
-                    System.out.println("📝 Contenido: " + response);
-            }
-        } catch (Exception e) {
-            System.err.println("💥 Error procesando mensaje: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    private static void handleWelcomeMessage(JSONObject msgObj) {
-        try {
-            String welcomeMsg = msgObj.optString("message", "Bienvenido al servidor");
-            System.out.println("👋 " + welcomeMsg);
-            
-            if (CtrlWait != null) {
-                CtrlWait.updateTitle("Conectado - " + welcomeMsg);
-            }
-        } catch (Exception e) {
-            System.err.println("Error en handleWelcomeMessage: " + e.getMessage());
-        }
-    }
-
-    private static void handlePlayerList(JSONObject msgObj) {
-        try {
-            JSONArray players = msgObj.optJSONArray("players");
-            if (players == null) {
-                System.out.println("📋 No hay lista de jugadores en el mensaje");
+            if (response == null || response.trim().isEmpty()) {
                 return;
             }
             
-            System.out.println("🎮 Lista de jugadores: " + players.length() + " jugadores");
+            String trimmed = response.trim();
             
-            if (CtrlWait != null) {
-                // Actualizar la interfaz con los jugadores
-                for (int i = 0; i < players.length(); i++) {
-                    JSONObject player = players.getJSONObject(i);
-                    String playerName = player.optString("name", "Jugador " + (i + 1));
-                    boolean connected = player.optBoolean("connected", true);
-
-                    CtrlWait.updatePlayer(i, playerName, connected);
-                    System.out.println("👤 Jugador " + i + ": " + playerName + " - " + (connected ? "CONECTADO" : "DESCONECTADO"));
-                }
+            if (trimmed.startsWith("Hola")) {
+                handleWelcomeText(response);
             }
+            else if (trimmed.startsWith("{")) {
+                try {
+                    JSONObject msgObj = new JSONObject(response);
+                    String messageType = msgObj.optString("type", "unknown");
+                    
+                    System.out.println("🔍 Tipo de mensaje JSON: " + messageType);
+                    
+                    switch (messageType) {
+                        case "configuration":
+                            handleConfigurationMessage(msgObj);
+                            break;
+                            
+                        case "playerConnected": // ✅ NUEVO: JUGADOR CONECTADO
+                            handlePlayerConnected(msgObj);
+                            break;
+                            
+                        case "playersUpdate": // ✅ NUEVO: ACTUALIZACIÓN DE JUGADORES
+                            handlePlayersUpdate(msgObj);
+                            break;
+                            
+                        case "countdown": // ✅ NUEVO: COUNTDOWN
+                            handleCountdown(msgObj);
+                            break;
+                            
+                        case "gameStart": // ✅ NUEVO: INICIO DE JUEGO
+                            handleGameStart(msgObj);
+                            break;
+                            
+                        case "welcome": // ✅ NUEVO: BIENVENIDA PERSONALIZADA
+                            handleWelcomeMessage(msgObj);
+                            break;
+                            
+                        case "playerJoined": // ✅ NUEVO: JUGADOR SE UNIÓ
+                            handlePlayerJoined(msgObj);
+                            break;
+                            
+                        default:
+                            System.out.println("❓ Mensaje JSON no manejado: " + messageType);
+                    }
+                } catch (Exception e) {
+                    System.err.println("❌ Error parseando JSON: " + e.getMessage());
+                }
+            } 
+            else {
+                handleOtherTextMessage(response);
+            }
+            
         } catch (Exception e) {
-            System.err.println("Error en handlePlayerList: " + e.getMessage());
+            System.err.println("💥 Error procesando mensaje: " + e.getMessage());
         }
     }
 
+    // ✅ NUEVO MANEJADOR: JUGADOR CONECTADO
+    private static void handlePlayerConnected(JSONObject msgObj) {
+        try {
+            String playerName = msgObj.optString("playerName", "Jugador");
+            int playerIndex = msgObj.optInt("playerIndex", -1);
+            int totalPlayers = msgObj.optInt("totalPlayers", 0);
+            
+            System.out.println("➕ Jugador conectado: " + playerName + " (índice: " + playerIndex + ")");
+            System.out.println("👥 Total de jugadores: " + totalPlayers);
+            
+            if (ctrlWait != null && playerIndex >= 0) {
+                ctrlWait.updatePlayer(playerIndex, playerName, true);
+                ctrlWait.updateOverallStatus();
+                ctrlWait.updateTitle("Jugadores: " + totalPlayers + "/2");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error en handlePlayerConnected: " + e.getMessage());
+        }
+    }
+
+    // ✅ NUEVO MANEJADOR: ACTUALIZACIÓN DE LISTA DE JUGADORES
+    private static void handlePlayersUpdate(JSONObject msgObj) {
+        try {
+            JSONArray players = msgObj.optJSONArray("players");
+            int totalPlayers = msgObj.optInt("totalPlayers", 0);
+            int maxPlayers = msgObj.optInt("maxPlayers", 2);
+            
+            System.out.println("🎮 Actualización de jugadores: " + totalPlayers + "/" + maxPlayers);
+            
+            if (ctrlWait != null && players != null) {
+                // ✅ LIMPIAR JUGADORES ANTERIORES
+                ctrlWait.updatePlayer(0, "?", false);
+                ctrlWait.updatePlayer(1, "?", false);
+                
+                // ✅ ACTUALIZAR CON NUEVA LISTA
+                for (int i = 0; i < players.length(); i++) {
+                    JSONObject player = players.getJSONObject(i);
+                    int index = player.optInt("index", i);
+                    String playerName = player.optString("name", "Jugador " + (i + 1));
+                    boolean connected = player.optBoolean("connected", true);
+                    
+                    ctrlWait.updatePlayer(index, playerName, connected);
+                    System.out.println("👤 Jugador " + index + ": " + playerName);
+                }
+                
+                ctrlWait.updateOverallStatus();
+                ctrlWait.updateTitle("Jugadores: " + totalPlayers + "/" + maxPlayers);
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error en handlePlayersUpdate: " + e.getMessage());
+        }
+    }
+
+    // ✅ NUEVO MANEJADOR: COUNTDOWN (actualizado)
     private static void handleCountdown(JSONObject msgObj) {
         try {
             int countdownValue = msgObj.optInt("value", -1);
-            System.out.println("⏱️ Countdown: " + countdownValue);
+            String countdownMessage = msgObj.optString("message", "Iniciando...");
             
-            if (CtrlWait != null && countdownValue >= 0) {
-                CtrlWait.updateCountdown(countdownValue);
+            System.out.println("⏱️ Countdown: " + countdownValue + " - " + countdownMessage);
+            
+            if (ctrlWait != null && countdownValue >= 0) {
+                ctrlWait.updateCountdown(countdownValue);
+                
+                if (countdownValue == 0) {
+                    ctrlWait.updateTitle("¡GO!");
+                } else {
+                    ctrlWait.updateTitle(countdownMessage);
+                }
             }
+            
         } catch (Exception e) {
             System.err.println("Error en handleCountdown: " + e.getMessage());
         }
     }
 
+    // ✅ NUEVO MANEJADOR: INICIO DE JUEGO
     private static void handleGameStart(JSONObject msgObj) {
-        System.out.println("🎯 ¡EL JUEGO COMIENZA!");
-        // Aquí cambiarías a la vista del juego
-    }
-
-    private static void handleErrorMessage(JSONObject msgObj) {
         try {
-            String errorMsg = msgObj.optString("message", "Error desconocido");
-            System.err.println("🚨 Error del servidor: " + errorMsg);
+            String message = msgObj.optString("message", "¡El juego ha comenzado!");
+            System.out.println("🎯 " + message);
             
+            if (ctrlWait != null) {
+                ctrlWait.updateTitle("¡Juego Iniciado!");
+                ctrlWait.updateCountdown(0);
+                
+                // ✅ AQUÍ DEBERÍAS CAMBIAR A LA VISTA DEL JUEGO
+                // UtilsViews.setViewAnimating("ViewGame");
+            }
+            
+            // ✅ MOSTRAR ALERTA DE INICIO
             Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Error del Servidor");
-                alert.setHeaderText("El servidor reportó un error");
-                alert.setContentText(errorMsg);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("¡Juego Iniciado!");
+                alert.setHeaderText("El juego está comenzando");
+                alert.setContentText("Preparate para jugar...");
                 alert.showAndWait();
             });
+            
         } catch (Exception e) {
-            System.err.println("Error en handleErrorMessage: " + e.getMessage());
+            System.err.println("Error en handleGameStart: " + e.getMessage());
         }
     }
 
+    // ✅ NUEVO MANEJADOR: JUGADOR SE UNIÓ
+    private static void handlePlayerJoined(JSONObject msgObj) {
+        try {
+            String playerName = msgObj.optString("playerName", "Jugador");
+            int playerIndex = msgObj.optInt("playerIndex", -1);
+            
+            System.out.println("🎮 Jugador se unió: " + playerName + " (posición: " + playerIndex + ")");
+            
+            if (ctrlWait != null && playerIndex >= 0) {
+                ctrlWait.updatePlayer(playerIndex, playerName, true);
+                ctrlWait.updateOverallStatus();
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error en handlePlayerJoined: " + e.getMessage());
+        }
+    }
+
+    // ✅ MANEJADOR DE BIENVENIDA (actualizado)
+    private static void handleWelcomeMessage(JSONObject msgObj) {
+        try {
+            String welcomeMsg = msgObj.optString("message", "Bienvenido al servidor");
+            String playerName = msgObj.optString("playerName", clientName);
+            
+            System.out.println("👋 " + welcomeMsg);
+            
+            // ✅ ACTUALIZAR NOMBRE SI EL SERVIDOR ASIGNA UNO
+            if (!playerName.equals(clientName)) {
+                clientName = playerName;
+                System.out.println("🏷️ Nombre asignado por servidor: " + clientName);
+            }
+            
+            if (ctrlWait != null) {
+                ctrlWait.updatePlayer(0, clientName, true);
+                ctrlWait.updateTitle(welcomeMsg);
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error en handleWelcomeMessage: " + e.getMessage());
+        }
+    }
+
+// FIN DEL NUEVO METDO 
+
+    // ✅ MANEJAR MENSAJE DE BIENVENIDA "Hola [IP]"
+    private static void handleWelcomeText(String message) {
+        System.out.println("👋 Mensaje de bienvenida del servidor: " + message);
+        
+        if (ctrlWait != null) {
+            ctrlWait.updateTitle("Conectado al servidor SpacePong");
+            // El servidor confirma la conexión pero no envía info de otros jugadores aún
+        }
+        
+        // ✅ EL SERVIDOR ESPERA QUE LE PIDAMOS CONFIGURACIÓN
+        System.out.println("🔄 Servidor listo, esperando solicitud de configuración...");
+    }
+
+    // ✅ MANEJAR MENSAJE DE CONFIGURACIÓN
+    private static void handleConfigurationMessage(JSONObject msgObj) {
+        try {
+            String configMessage = msgObj.optString("configMessage", "SpacePong");
+            System.out.println("⚙️ Configuración recibida del servidor: " + configMessage);
+            
+            if (ctrlWait != null) {
+                ctrlWait.updateTitle("Grupo: " + configMessage);
+                ctrlWait.updatePlayer(0, clientName, true);
+                ctrlWait.updateOverallStatus();
+            }
+            
+            // ✅ MOSTRAR CONFIRMACIÓN AL USUARIO
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Configuración Recibida");
+                alert.setHeaderText("Conectado al grupo: " + configMessage);
+                alert.setContentText("El servidor ha aceptado tu conexión.\n\nEsperando a que más jugadores se conecten...");
+                alert.showAndWait();
+            });
+            
+        } catch (Exception e) {
+            System.err.println("Error en handleConfigurationMessage: " + e.getMessage());
+        }
+    }
+
+    // ✅ MANEJAR OTROS MENSAJES DE TEXTO
+    private static void handleOtherTextMessage(String message) {
+        System.out.println("💬 Otro mensaje del servidor: " + message);
+        
+        // Podrías mostrar mensajes del servidor en la interfaz
+        if (ctrlWait != null && message.length() < 100) {
+            ctrlWait.updateTitle("Servidor: " + message);
+        }
+    }
+
+
+
+    // ✅ MANEJADOR DE ERRORES DE WEBSOCKET
     private static void wsError(String response) {
         System.err.println("❌ Error de WebSocket: " + response);
-        
+    
         Platform.runLater(() -> {
+            // ✅ ACTUALIZAR WAITING ROOM
+            if (ctrlWait != null) {
+                ctrlWait.updateTitle("Error de conexión");
+                ctrlWait.updatePlayer(0, clientName, false);
+            }
+        
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Error de Conexión");
             alert.setHeaderText("No se pudo conectar al servidor");
             alert.setContentText("Error: " + response + 
-                            "\n\nServidor: wss://matrixplay6.ieti.site:443" +
-                            "\n\nVerifica:\n• Tu conexión a internet\n• Que el servidor esté disponible\n• Que no haya bloqueos de firewall");
+                               "\n\nServidor: " + serverUrl +
+                               "\n\nVerifica:\n• Tu conexión a internet\n• Que el servidor esté disponible\n• Que no haya bloqueos de firewall");
             alert.showAndWait();
         });
     }
+
+    // ✅ MÉTODO DE DIAGNÓSTICO COMPLETO
+    public static void diagnoseConnection() {
+        System.out.println("=" .repeat(60));
+        System.out.println("🔍 DIAGNÓSTICO DE CONEXIÓN");
+        System.out.println("=" .repeat(60));
+        System.out.println("📡 URL del servidor: " + serverUrl);
+        System.out.println("👤 Nombre del jugador: " + clientName);
+        System.out.println("🔗 WebSocket estado: " + (wsClient != null ? 
+            (wsClient.isOpen() ? "CONECTADO" : "DESCONECTADO") : "NO INICIALIZADO"));
+        System.out.println("🎮 Controlador Wait: " + (ctrlWait != null ? "PRESENTE" : "AUSENTE"));
+        System.out.println("🔄 Hilos activos: " + Thread.activeCount());
+        
+        if (wsClient != null && wsClient.isOpen()) {
+            System.out.println("✅ WebSocket funcionando correctamente");
+        } else {
+            System.err.println("❌ WebSocket NO está conectado");
+        }
+        System.out.println("=" .repeat(60));
+    }
+
+    // ✅ MÉTODO PARA VERIFICAR EL ESTADO ACTUAL
+    public static void printCurrentState() {
+        System.out.println("📊 ESTADO ACTUAL:");
+        System.out.println("  - Jugador local: " + clientName);
+        if (ctrlWait != null) {
+            System.out.println("  - Jugador 0 en UI: " + ctrlWait.getPlayerName(0));
+            System.out.println("  - Jugador 1 en UI: " + ctrlWait.getPlayerName(1));
+            System.out.println("  - Jugadores conectados: " + ctrlWait.getConnectedPlayersCount());
+        }
+    }
+
+    // ✅ MÉTODO PARA FORZAR ACTUALIZACIÓN MANUAL (para testing)
+    public static void forceRefresh() {
+        System.out.println("🔄 Forzando actualización manual...");
+        diagnoseConnection();
+        printCurrentState();
+        
+        if (wsClient != null && wsClient.isOpen()) {
+            // Enviar mensaje de "refresh" al servidor
+            try {
+                JSONObject refreshMsg = new JSONObject();
+                refreshMsg.put("type", "refresh");
+                refreshMsg.put("playerName", clientName);
+                wsClient.safeSend(refreshMsg.toString());
+                System.out.println("📤 Mensaje refresh enviado");
+            } catch (Exception e) {
+                System.err.println("Error enviando refresh: " + e.getMessage());
+            }
+        }
+    }
+
 }

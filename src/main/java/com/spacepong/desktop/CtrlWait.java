@@ -114,6 +114,7 @@ public class CtrlWait {
         }
     }
 
+    // ✅ EN EL CTRLWAIT - MÉTODO PARA ACTUALIZAR TÍTULO
     public void updateTitle(String title) {
         if (txtTitle != null) {
             txtTitle.setText(title);
