@@ -1,6 +1,6 @@
 com/spacepong/desktop/ctrlStart.class
 com/spacepong/desktop/UtilsViews.class
-com/spacepong/desktop/ctrlWaitingRoom.class
+com/spacepong/desktop/CtrlWait.class
 com/spacepong/desktop/UtilsWS.class
 com/spacepong/desktop/UtilsWS$1.class
 com/spacepong/desktop/Main.class

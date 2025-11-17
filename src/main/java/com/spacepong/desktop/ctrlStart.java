@@ -5,6 +5,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.scene.text.Font;
 import java.io.FileWriter;
@@ -23,6 +24,9 @@ public class ctrlStart {
     @FXML private Label autoresLabel;
     @FXML private Label urlDisplayLabel;
 
+    public static CtrlWait ctrlWait;
+
+
     // Ruta relativa al directorio del proyecto
     private static final String CONFIG_DIR = "assets/data";
     private static final String CONFIG_FILE = CONFIG_DIR + "/config.json";
@@ -32,9 +36,6 @@ public class ctrlStart {
     private void initialize() {
         // Cargar y aplicar la fuente Solar Space
         loadAndApplyFont();
-        
-        // Valores por defecto
-        setDefaultValues();
         
         // Verificar y cargar configuración al iniciar
         checkAndLoadConfig();
@@ -59,16 +60,9 @@ public class ctrlStart {
         }
     }
 
-    private void setDefaultValues() {
-        nameField.setText("Jugador");
-    }
 
     private void checkAndLoadConfig() {
         try {
-            System.out.println("Directorio actual: " + System.getProperty("user.dir"));
-            System.out.println("Buscando configuración en: " + CONFIG_FILE);
-            System.out.println("Ruta absoluta: " + Paths.get(CONFIG_FILE).toAbsolutePath());
-            
             if (Files.exists(Paths.get(CONFIG_FILE))) {
                 String content = new String(Files.readAllBytes(Paths.get(CONFIG_FILE)));
                 JSONObject config = new JSONObject(content);
@@ -76,19 +70,18 @@ public class ctrlStart {
                 if (config.has("url")) {
                     String url = config.getString("url");
                     updateUrlDisplayLabel(url, "Configuración cargada");
-                    System.out.println("Configuración cargada correctamente: " + url);
+                    System.out.println("Configuración cargada: " + url);
                 } else {
-                    System.out.println("Archivo existe pero no tiene URL, creando configuración por defecto");
-                    createDefaultConfig();
+                    // Si no tiene URL, usar la de matrixplay6
+                    updateUrlDisplayLabel("wss://matrixplay6.ieti.site:443", "URL por defecto");
                 }
             } else {
-                System.out.println("Archivo de configuración no encontrado, creando uno nuevo");
-                createDefaultConfig();
+                // Si no existe archivo, usar matrixplay6
+                updateUrlDisplayLabel("wss://matrixplay6.ieti.site:443", "URL por defecto");
             }
         } catch (Exception e) {
             System.err.println("Error cargando configuración: " + e.getMessage());
-            e.printStackTrace();
-            createDefaultConfig();
+            updateUrlDisplayLabel("wss://matrixplay6.ieti.site:443", "URL por defecto");
         }
     }
 
@@ -175,17 +168,79 @@ public class ctrlStart {
     @FXML
     private void handleConfirm(ActionEvent event) {
         if (validateInput()) {
-            System.out.println("Conectando...");
-            System.out.println("Nombre: " + nameField.getText());
-            
-            if (verifyConfig()) {
-                showSuccess("Conexión establecida correctamente");
-                // Aquí llamarías a Main.connectToServer() cuando esté listo
-            } else {
-                showError("Error de Configuración", "No se pudo cargar la configuración de conexión");
-            }
+            // ✅ MOSTRAR WAITING ROOM INMEDIATAMENTE
+            showWaitingRoom();
         }
     }
+
+    private void showWaitingRoom() {
+        try {
+            System.out.println("🔄 Cambiando a Waiting Room...");
+            
+            // 1. Cambiar a la vista de waiting room
+            UtilsViews.showWaitViewWithAnimation();
+            
+            // 2. Obtener el controlador de waiting room
+            CtrlWait waitController = UtilsViews.getWaitController();
+            
+            if (waitController != null) {
+                // 3. Actualizar la waiting room con la información del jugador
+                String playerName = nameField.getText().trim();
+                
+                // Actualizar jugador 1 (el propio jugador)
+                waitController.updatePlayer(0, playerName, true);
+                
+                // Actualizar título
+                waitController.updateTitle("Conectando al servidor...");
+                
+                // ✅ ACTUALIZAR ESTADO GENERAL (este método SÍ existe en CtrlWait)
+                waitController.updateOverallStatus();
+                
+                System.out.println("✅ Waiting Room actualizada - Jugador: " + playerName);
+                
+            } else {
+                System.err.println("❌ Error: No se pudo obtener el controlador de Waiting Room");
+                UtilsViews.showStartViewWithAnimation();
+                showError("Error", "No se pudo cargar la sala de espera");
+                return;
+            }
+            
+            // 4. Iniciar la conexión WebSocket
+            String playerName = nameField.getText().trim();
+            String serverUrl = "wss://matrixplay6.ieti.site:443";
+            
+            boolean connectionStarted = Main.connectToServer(serverUrl, playerName);
+            
+            if (!connectionStarted) {
+                System.err.println("❌ No se pudo iniciar la conexión WebSocket");
+                UtilsViews.showStartViewWithAnimation();
+                showError("Error de Conexión", "No se pudo iniciar la conexión con el servidor");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error en showWaitingRoom: " + e.getMessage());
+            e.printStackTrace();
+            
+            try {
+                UtilsViews.showStartViewWithAnimation();
+            } catch (Exception ex) {
+                System.err.println("Error crítico volviendo a start: " + ex.getMessage());
+            }
+            
+            showError("Error", "No se pudo cambiar a la sala de espera: " + e.getMessage());
+        }
+    }
+    // ✅ MÉTODO PARA VOLVER A START VIEW DESDE WAITING ROOM (útil para errores)
+    private void returnToStartView() {
+        try {
+            Platform.runLater(() -> {
+                UtilsViews.showStartViewWithAnimation();
+            });
+        } catch (Exception e) {
+            System.err.println("Error volviendo a Start View: " + e.getMessage());
+        }
+    }
+
 
     private boolean validateInput() {
         if (nameField.getText().trim().isEmpty()) {
