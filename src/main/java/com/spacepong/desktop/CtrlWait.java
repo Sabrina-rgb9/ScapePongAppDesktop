@@ -91,20 +91,28 @@ public class CtrlWait {
         }
         updateOverallStatus();
     }
-
+    
+    // ✅ EN EL CTRLWAIT - ACTUALIZA EL MÉTODO updateCountdown:
     public void updateCountdown(int seconds) {
         if (countdownLabel != null) {
-            if (seconds > 0) {
+            if (seconds == -1) {
+                // ✅ ESTADO: PREPARANDO PARTIDA
+                countdownLabel.setText("PREPARANDO...");
+                countdownLabel.setStyle("-fx-text-fill: #00ff9c; -fx-font-size: 36; -fx-font-weight: bold;");
+            } else if (seconds > 0) {
                 countdownLabel.setText(String.valueOf(seconds));
                 countdownLabel.setStyle("-fx-text-fill: #00ff9c; -fx-font-size: 48; -fx-font-weight: bold;");
             } else if (seconds == 0) {
-                countdownLabel.setText("¡YA!");
+                countdownLabel.setText("¡GO!");
                 countdownLabel.setStyle("-fx-text-fill: #ff0066; -fx-font-size: 48; -fx-font-weight: bold;");
             }
         }
         
         if (statusLabel != null) {
-            if (seconds > 0) {
+            if (seconds == -1) {
+                statusLabel.setText("PARTIDA ENCONTRADA - PREPARANDO...");
+                statusLabel.setStyle("-fx-text-fill: #00ff9c; -fx-font-size: 18; -fx-font-weight: bold;");
+            } else if (seconds > 0) {
                 statusLabel.setText("INICIANDO EN " + seconds + " SEGUNDOS");
                 statusLabel.setStyle("-fx-text-fill: #00ff9c; -fx-font-size: 18; -fx-font-weight: bold;");
             } else if (seconds == 0) {

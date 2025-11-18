@@ -26,11 +26,13 @@ public class ctrlStart {
 
     public static CtrlWait ctrlWait;
 
-
     // Ruta relativa al directorio del proyecto
     private static final String CONFIG_DIR = "assets/data";
     private static final String CONFIG_FILE = CONFIG_DIR + "/config.json";
-private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTTP y puerto 3000
+    private static final String DEFAULT_URL = "ws://localhost:3000"; // URL por defecto para servidor local
+    
+    private String currentServerUrl = DEFAULT_URL;
+
     @FXML
     private void initialize() {
         // Cargar y aplicar la fuente Solar Space
@@ -59,7 +61,6 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
         }
     }
 
-
     private void checkAndLoadConfig() {
         try {
             if (Files.exists(Paths.get(CONFIG_FILE))) {
@@ -68,19 +69,24 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
                 
                 if (config.has("url")) {
                     String url = config.getString("url");
+                    currentServerUrl = url;
                     updateUrlDisplayLabel(url, "Configuración cargada");
-                    System.out.println("Configuración cargada: " + url);
+                    System.out.println("✅ Configuración cargada: " + url);
                 } else {
-                    // Si no tiene URL, usar la de matrixplay6
-                    updateUrlDisplayLabel("wss://matrixplay6.ieti.site:443", "URL por defecto");
+                    // Si no tiene URL, usar la por defecto
+                    currentServerUrl = DEFAULT_URL;
+                    updateUrlDisplayLabel(DEFAULT_URL, "URL por defecto (sin URL en config)");
+                    System.out.println("⚠️  Archivo config.json no contiene URL, usando por defecto");
                 }
             } else {
-                // Si no existe archivo, usar matrixplay6
-                updateUrlDisplayLabel("wss://matrixplay6.ieti.site:443", "URL por defecto");
+                // Si no existe archivo, crear uno con URL por defecto
+                currentServerUrl = DEFAULT_URL;
+                createDefaultConfig();
             }
         } catch (Exception e) {
-            System.err.println("Error cargando configuración: " + e.getMessage());
-            updateUrlDisplayLabel("wss://matrixplay6.ieti.site:443", "URL por defecto");
+            System.err.println("❌ Error cargando configuración: " + e.getMessage());
+            currentServerUrl = DEFAULT_URL;
+            updateUrlDisplayLabel(DEFAULT_URL, "URL por defecto (error cargando)");
         }
     }
 
@@ -105,11 +111,12 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
                 file.flush();
             }
             
+            currentServerUrl = DEFAULT_URL;
             updateUrlDisplayLabel(DEFAULT_URL, "Configuración creada en assets/data");
-            System.out.println("Archivo de configuración creado exitosamente");
+            System.out.println("✅ Archivo de configuración creado exitosamente");
             
         } catch (Exception e) {
-            System.err.println("Error creando configuración: " + e.getMessage());
+            System.err.println("❌ Error creando configuración: " + e.getMessage());
             e.printStackTrace();
             
             // Fallback al directorio raíz del proyecto
@@ -125,7 +132,7 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
         
         for (String fallbackPath : fallbackLocations) {
             try {
-                System.out.println("Intentando fallback en: " + fallbackPath);
+                System.out.println("🔄 Intentando fallback en: " + fallbackPath);
                 
                 JSONObject config = new JSONObject();
                 config.put("url", DEFAULT_URL);
@@ -141,17 +148,19 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
                     file.flush();
                 }
                 
+                currentServerUrl = DEFAULT_URL;
                 updateUrlDisplayLabel(DEFAULT_URL, "Configuración en: " + fallbackPath);
-                System.out.println("Configuración creada exitosamente en: " + fallbackPath);
+                System.out.println("✅ Configuración creada exitosamente en: " + fallbackPath);
                 return;
                 
             } catch (Exception e2) {
-                System.err.println("Fallback falló en " + fallbackPath + ": " + e2.getMessage());
+                System.err.println("❌ Fallback falló en " + fallbackPath + ": " + e2.getMessage());
             }
         }
         
+        currentServerUrl = DEFAULT_URL;
         updateUrlDisplayLabel(DEFAULT_URL, "Usando URL por defecto (sin archivo)");
-        System.err.println("Todos los intentos de crear configuración fallaron");
+        System.err.println("❌ Todos los intentos de crear configuración fallaron");
     }
 
     private void updateUrlDisplayLabel(String url, String status) {
@@ -175,6 +184,7 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
     private void showWaitingRoom() {
         try {
             System.out.println("🔄 Cambiando a Waiting Room...");
+            System.out.println("🌐 URL del servidor: " + currentServerUrl);
             
             // 1. Cambiar a la vista de waiting room
             UtilsViews.showWaitViewWithAnimation();
@@ -204,18 +214,20 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
                 return;
             }
             
-    // 4. Iniciar la conexión WebSocket al servidor SpacePong
+            // 4. Iniciar la conexión WebSocket al servidor SpacePong usando la URL del config
             String playerName = nameField.getText().trim();
-            String serverUrl = "ws://localhost:3000"; // Servidor local en puerto 3000
             
-            boolean connectionStarted = Main.connectToServer(serverUrl, playerName);
+            boolean connectionStarted = Main.connectToServer(currentServerUrl, playerName);
             
             if (!connectionStarted) {
                 System.err.println("❌ No se pudo iniciar la conexión WebSocket");
+                System.err.println("🔧 URL utilizada: " + currentServerUrl);
                 UtilsViews.showStartViewWithAnimation();
-                showError("Error de Conexión", "No se pudo conectar al servidor SpacePong en localhost:3000");
+                showError("Error de Conexión", 
+                    "No se pudo conectar al servidor SpacePong en:\n" + 
+                    currentServerUrl + 
+                    "\n\nVerifique que el servidor esté ejecutándose y la URL sea correcta en config.json");
             }
-            
             
         } catch (Exception e) {
             System.err.println("❌ Error en showWaitingRoom: " + e.getMessage());
@@ -230,6 +242,7 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
             showError("Error", "No se pudo cambiar a la sala de espera: " + e.getMessage());
         }
     }
+
     // ✅ MÉTODO PARA VOLVER A START VIEW DESDE WAITING ROOM (útil para errores)
     private void returnToStartView() {
         try {
@@ -240,7 +253,6 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
             System.err.println("Error volviendo a Start View: " + e.getMessage());
         }
     }
-
 
     private boolean validateInput() {
         if (nameField.getText().trim().isEmpty()) {
@@ -263,12 +275,12 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
                     String content = new String(Files.readAllBytes(Paths.get(configPath)));
                     JSONObject config = new JSONObject(content);
                     if (config.has("url") && !config.getString("url").isEmpty()) {
-                        System.out.println("Configuración válida encontrada en: " + configPath);
+                        System.out.println("✅ Configuración válida encontrada en: " + configPath);
                         return true;
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Error verificando " + configPath + ": " + e.getMessage());
+                System.err.println("❌ Error verificando " + configPath + ": " + e.getMessage());
             }
         }
         
@@ -289,5 +301,10 @@ private static final String DEFAULT_URL = "ws://localhost:3000"; // Cambia a HTT
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+    
+    // ✅ MÉTODO PARA OBTENER LA URL ACTUAL (puede ser útil para otros componentes)
+    public String getCurrentServerUrl() {
+        return currentServerUrl;
     }
 }
