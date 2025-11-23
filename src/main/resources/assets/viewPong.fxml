@@ -17,12 +17,10 @@
       fx:controller="com.spacepong.desktop.PongController"
       spacing="8" alignment="TOP_CENTER">
 
-    <!-- padding correcto como elemento Insets -->
     <padding>
         <Insets top="10" right="10" bottom="10" left="10"/>
     </padding>
 
-    <!-- Top: puntuaciones -->
     <HBox spacing="8" prefHeight="30" prefWidth="600" alignment="CENTER_LEFT">
         <Label fx:id="scoreLeftLabel" text="0" textFill="#00FF66">
             <font>
@@ -39,7 +37,6 @@
         </Label>
     </HBox>
 
-    <!-- Playfield (cuadrado) -->
     <StackPane prefWidth="600" prefHeight="600">
         <Pane fx:id="playfield" prefWidth="600" prefHeight="600">
 
