@@ -1,11 +1,18 @@
 package com.spacepong.desktop;
 
-import javafx.application.Platform;
 import javafx.animation.PauseTransition;
-import javafx.util.Duration;
+import javafx.application.Platform;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.stage.Stage;
+import javafx.stage.Window;
+import javafx.util.Duration;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.io.IOException;
 
 public class GameController {
 
@@ -56,18 +63,58 @@ public class GameController {
     }
 
     // -------------------------
-    // MENSAJES WS
+    // MENSAJES WS (UNIFICADO)
     // -------------------------
 
+    /**
+     * Maneja mensajes que llegan desde WSManager/Main.
+     * Soporta:
+     *  - mensajes JSON con campo "type" (comportamiento original)
+     *  - mensajes envoltorio {type:"kv", key: "...", value: ...} para avisos simples (player-count, countdown)
+     */
     public void handleMessage(String response) {
         try {
             if (response == null || response.trim().isEmpty()) return;
 
             JSONObject msg = new JSONObject(response);
-            String type = msg.optString("type", "unknown");
+            String msgType = msg.optString("type", "").trim();
 
-            switch (type) {
-                case "configuration" -> sendRegisterMessage();
+            // 1) Caso kv (clave=valor convertido por WSManager)
+            if ("kv".equalsIgnoreCase(msgType)) {
+                String key = msg.optString("key", "").trim();
+                Object val = msg.opt("value");
+
+                // playerRegistry flag
+                if (key.contains("playerRegistry.isAtLeastTwoPlayersAvalible")) {
+                    boolean v = false;
+                    if (val instanceof Boolean) v = (Boolean) val;
+                    else if (val != null) v = "true".equalsIgnoreCase(val.toString());
+                    atLeastTwoPlayers = v;
+                }
+
+                // countdown value
+                if (key.toLowerCase().contains("count")) {
+                    int n = 0;
+                    if (val instanceof Number) n = ((Number) val).intValue();
+                    else if (val != null) {
+                        try { n = Integer.parseInt(val.toString()); } catch (NumberFormatException ignored) {}
+                    }
+                    countdownReachedZero = (n == 0);
+
+                    // actualizar UI de ctrlWait si existe
+                    if (ctrlWait != null) ctrlWait.updateCountdown(n);
+                }
+
+                // comprobar apertura de vista juego
+                checkAndOpenGameIfReady();
+                return;
+            }
+
+            // 2) Mensajes JSON por tipo (comportamiento original)
+            if (msgType == null || msgType.isEmpty()) return;
+
+            switch (msgType) {
+                case "configuration" -> sendRequestConfiguration();
                 case "acceptRegister" -> handleAcceptRegister();
                 case "denyRegister" -> handleDenyRegister(msg);
                 case "startGame" -> handleStartGame(msg);
@@ -83,6 +130,7 @@ public class GameController {
 
         } catch (Exception e) {
             System.err.println("Error procesando mensaje WS: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -241,5 +289,52 @@ public class GameController {
 
     public void showConnectionError(String msg) {
         showAlert(Alert.AlertType.ERROR, "Error de conexión", "No se pudo conectar al servidor", msg);
+    }
+
+    // Flags para decidir cuándo arrancar la vista de Pong
+    private boolean atLeastTwoPlayers = false;
+    private boolean countdownReachedZero = false;
+    private boolean gameViewOpened = false;
+
+    private synchronized void checkAndOpenGameIfReady() {
+        if (gameViewOpened) return;
+        if (atLeastTwoPlayers && countdownReachedZero) {
+            gameViewOpened = true; // evitar abrir varias veces
+            Platform.runLater(() -> {
+                try {
+                    // Cargar FXML de pong
+                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/spacepong/desktop/pong.fxml"));
+                    Parent root = loader.load();
+
+                    // Intentar obtener el Stage principal buscando una ventana visible
+                    Stage primary = null;
+                    try {
+                        for (Window w : Window.getWindows()) {
+                            if (w instanceof Stage) {
+                                Stage s = (Stage) w;
+                                if (s.isShowing()) {
+                                    primary = s;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+
+                    if (primary != null && primary.getScene() != null) {
+                        primary.getScene().setRoot(root);
+                        primary.sizeToScene();
+                        primary.setTitle("SpacePong - Juego");
+                    } else {
+                        Stage newStage = new Stage();
+                        newStage.setScene(new Scene(root));
+                        newStage.setTitle("SpacePong - Juego");
+                        newStage.show();
+                    }
+                } catch (IOException e) {
+                    System.err.println("No se pudo cargar pong.fxml: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+        }
     }
 }
