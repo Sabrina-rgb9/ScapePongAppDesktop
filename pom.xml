@@ -1,176 +1,141 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
-    <groupId>com.broadcast</groupId>
-    <artifactId>desktop-client</artifactId>
+    <groupId>com.spacepong</groupId>
+    <artifactId>spacepong-desktop</artifactId>
     <version>1.0.0</version>
-    <packaging>jar</packaging>
-    
-    <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javafx.version>17.0.8</javafx.version>
-        <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
-        <maven.shade.plugin.version>3.4.1</maven.shade.plugin.version>
-    </properties>
-    
-    <dependencies>
-        <!-- JavaFX Controls -->
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-controls</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-        
-        <!-- JavaFX FXML -->
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-fxml</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-        
-        <!-- JavaFX Graphics (incluido automáticamente pero por si acaso) -->
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-graphics</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-        
-        <!-- JavaFX Base -->
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-base</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-    </dependencies>
-    
     <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <includes>
-                    <include>**/*.fxml</include>
-                    <include>**/*.css</include>
-                    <include>**/*.png</include>
-                    <include>**/*.jpg</include>
-                    <include>**/*.jpeg</include>
-                    <include>**/*.gif</include>
-                    <include>**/*.ttf</include>
-                    <include>**/*.otf</include>
-                    <include>**/*.properties</include>
-                </includes>
-            </resource>
-        </resources>
-        
         <plugins>
-            <!-- Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven.compiler.plugin.version}</version>
+                <version>3.11.0</version>
                 <configuration>
-                    <source>11</source>
-                    <target>11</target>
-                    <encoding>UTF-8</encoding>
+                    <source>20</source>
+                    <target>20</target>
+                    <compilerArgs>
+                        <arg>--add-opens=java.base/java.lang=ALL-UNNAMED</arg>
+                        <arg>--add-opens=java.base/java.nio=ALL-UNNAMED</arg>
+                        <arg>--add-opens=java.base/java.util=ALL-UNNAMED</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
-            
-            <!-- JavaFX Maven Plugin -->
-            <plugin>
-                <groupId>org.openjfx</groupId>
-                <artifactId>javafx-maven-plugin</artifactId>
-                <version>0.0.8</version>
-                <configuration>
-                    <mainClass>com.broadcast.client.MainApp</mainClass>
-                    <options>
-                        <!-- Opciones para mejorar rendimiento -->
-                        <option>-Dprism.forceGPU=true</option>
-                        <option>-Dprism.order=es2,sw</option>
-                    </options>
-                </configuration>
-            </plugin>
-            
-            <!-- Maven Shade Plugin para crear JAR ejecutable -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>${maven.shade.plugin.version}</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.broadcast.client.MainApp</mainClass>
-                                </transformer>
-                                <!-- Incluir recursos de META-INF -->
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                            </transformers>
-                            <filters>
-                                <filter>
-                                    <!-- Excluir signatures de módulos para evitar warnings -->
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            
-            <!-- Resources Plugin -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.3.1</version>
-                <configuration>
-                    <encoding>UTF-8</encoding>
-                </configuration>
-            </plugin>
-            
-            <!-- Exec Maven Plugin -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.1.0</version>
-                <configuration>
-                    <mainClass>com.broadcast.client.MainApp</mainClass>
-                    <commandlineArgs></commandlineArgs>
-                </configuration>
-            </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.3.0</version>
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>shade</goal>
+                            </goals>
+                            <configuration>
+                                <transformers>
+                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                        <mainClass>com.spacepong.desktop.Main</mainClass> 
+                                    </transformer>
+                                </transformers>
+                                <finalName>server-package</finalName>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.2.0</version>
+                    <configuration>
+                        <filesets>
+                            <fileset>
+                                <directory>${project.build.directory}/classes</directory>
+                                <excludes>
+                                    <exclude>assets/icons/spacepong_logo.png</exclude>
+                                </excludes>
+                            </fileset>
+                        </filesets>
+                    </configuration>
+                </plugin>
+
+
         </plugins>
     </build>
-    
+    <dependencies>
+        <!-- Dependency for JavaFX -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>21</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-fxml</artifactId>
+            <version>21</version>
+        </dependency>       
+        <!-- Dependency for Java WebSocket -->
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.5.3</version>
+        </dependency>
+        <!-- Dependency for JSON -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version> <!-- This seems to be a future date, please ensure it's the correct version -->
+        </dependency>
+        <!-- Dependencies for SLF4J -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.5.3</version>
+        </dependency>
+        <!-- Advanced command line tools -->
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>3.21.0</version>
+        </dependency>
+    </dependencies>
     <profiles>
-        <!-- Perfil para desarrollo -->
         <profile>
-            <id>dev</id>
-            <properties>
-                <build.profile.id>dev</build.profile.id>
-            </properties>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-        </profile>
-        
-        <!-- Perfil para producción -->
-        <profile>
-            <id>prod</id>
-            <properties>
-                <build.profile.id>prod</build.profile.id>
-            </properties>
+            <id>runMain</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>1.6.0</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <mainClass>${exec.mainClass}</mainClass>
+                            <arguments>
+                                <argument>${javafx.platform}</argument>
+                            </arguments>
+                            <systemPropertyVariables>
+                                <javafx.platform>${javafx.platform}</javafx.platform>
+                            </systemPropertyVariables>
+                            <classpathScope>test</classpathScope>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

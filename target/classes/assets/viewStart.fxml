@@ -9,107 +9,54 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane xmlns="http://javafx.com/javafx/11.0.1" 
-            xmlns:fx="http://javafx.com/fxml/1" 
-            fx:controller="com.desktop.controllerStart"
-            prefHeight="600" 
-            prefWidth="900"
-            style="-fx-background-color: #0b0011;">
+<BorderPane prefHeight="600" prefWidth="900" style="-fx-background-color: #0b0011;" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.spacepong.desktop.ctrlStart">
     
     <left>
         <VBox alignment="CENTER" spacing="30" style="-fx-background-color: #1d063b; -fx-padding: 40;">
             <!-- Logo -->
-            <ImageView fitWidth="300" fitHeight="300" preserveRatio="true">
+            <ImageView fitHeight="300" fitWidth="300" preserveRatio="true">
                 <image>
                     <Image url="@/assets/icons/spacepong_logo.png" />
                 </image>
             </ImageView>
             
             <!-- Botón Conectar abajo del logo -->
-            <Button fx:id="confirmButton" 
-                    text="CONECTAR" 
-                    style="-fx-background-color: #00ff9c; -fx-text-fill: #0b0011; -fx-background-radius: 25;"
-                    onAction="#handleConfirm"
-                    prefWidth="200" 
-                    prefHeight="50"/>
+            <Button fx:id="confirmButton" onAction="#handleConfirm" prefHeight="50" prefWidth="200" style="-fx-background-color: #00ff9c; -fx-text-fill: #0b0011; -fx-background-radius: 25;" text="CONECTAR" />
         </VBox>
     </left>
     
     <center>
         <VBox alignment="CENTER" spacing="30" style="-fx-padding: 50;">
             <!-- Título Configuración -->
-            <Label fx:id="configLabel" 
-                   text="CONFIGURACIÓN" 
-                   style="-fx-text-fill: #00ff9c;"/>
+            <Label fx:id="configLabel" style="-fx-text-fill: #00ff9c;" text="CONFIGURACIÓN" />
             
             <!-- Formulario de conexión -->
-            <VBox alignment="CENTER_LEFT" spacing="25" 
-                  style="-fx-background-color: #1d063b; -fx-padding: 40; -fx-background-radius: 15;">
+            <VBox alignment="CENTER_LEFT" spacing="25" style="-fx-background-color: #1d063b; -fx-padding: 40; -fx-background-radius: 15;">
                 
                 <!-- Campo Nombre -->
                 <VBox spacing="8">
-                    <Label fx:id="nameLabel"
-                           text="NOMBRE" 
-                           style="-fx-text-fill: #bddddd;"/>
-                    <TextField fx:id="nameField" 
-                             promptText="Ingresa tu nombre"
-                             style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;"
-                             prefWidth="350"
-                             prefHeight="40"/>
+                    <Label fx:id="nameLabel" style="-fx-text-fill: #bddddd;" text="NOMBRE" />
+                    <TextField fx:id="nameField" prefHeight="40" prefWidth="350" promptText="Ingresa tu nombre" style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;" />
                 </VBox>
-                
-                <!-- Campo Protocol -->
+
+                <!-- Label para mostrar la URL -->
                 <VBox spacing="8">
-                    <Label fx:id="protocolLabel"
-                           text="PROTOCOLO" 
-                           style="-fx-text-fill: #bddddd;"/>
-                    <TextField fx:id="protocolField" 
-                             promptText="Ej: TCP/UDP"
-                             style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;"
-                             prefWidth="350"
-                             prefHeight="40"/>
+                    <Label fx:id="urlLabel" style="-fx-text-fill: #bddddd;" text="URL DEL SERVIDOR" />
+                    <Label fx:id="urlDisplayLabel" prefHeight="40" prefWidth="350" style="-fx-text-fill: #00ff9c; -fx-background-color: #0b0011; -fx-padding: 10; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;" text="Ingresa la URL" />
                 </VBox>
-                
-                <!-- Campo Host -->
-                <VBox spacing="8">
-                    <Label fx:id="hostLabel"
-                           text="HOST" 
-                           style="-fx-text-fill: #bddddd;"/>
-                    <TextField fx:id="hostField" 
-                             promptText="Ej: localhost"
-                             style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;"
-                             prefWidth="350"
-                             prefHeight="40"/>
-                </VBox>
-                
-                <!-- Campo Port -->
-                <VBox spacing="8">
-                    <Label fx:id="portLabel"
-                           text="PUERTO" 
-                           style="-fx-text-fill: #bddddd;"/>
-                    <TextField fx:id="portField" 
-                             promptText="Ej: 8080"
-                             style="-fx-background-color: #0b0011; -fx-text-fill: #00ff9c; -fx-prompt-text-fill: #61c89c; -fx-border-color: #00ff9c; -fx-border-radius: 8; -fx-background-radius: 8;"
-                             prefWidth="350"
-                             prefHeight="40"/>
-                </VBox>
-                
+
             </VBox>
             
             <!-- Créditos -->
             <VBox alignment="CENTER" spacing="5">
-                <Label fx:id="desarrolladoLabel"
-                       text="DESARROLLADO POR" 
-                       style="-fx-text-fill: #61c89c;"/>
-                <Label fx:id="autoresLabel"
-                       text="SABRINA &amp; RUBEN" 
-                       style="-fx-text-fill: #00ff9c;"/>
+                <Label fx:id="desarrolladoLabel" style="-fx-text-fill: #61c89c;" text="DESARROLLADO POR" />
+                <Label fx:id="autoresLabel" style="-fx-text-fill: #00ff9c;" text="SABRINA &amp; RUBEN" />
             </VBox>
         </VBox>
     </center>
     
     <padding>
-        <Insets top="20" right="20" bottom="20" left="20"/>
+        <Insets bottom="20" left="20" right="20" top="20" />
     </padding>
     
 </BorderPane>

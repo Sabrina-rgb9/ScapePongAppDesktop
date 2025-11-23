@@ -1,4 +1,9 @@
-com\broadcast\client\MainApp.class
-com\broadcast\client\ConsoleClient.class
-com\broadcast\client\SimpleClient.class
-com\desktop\controllerStart.class
+com\spacepong\desktop\Main.class
+com\spacepong\desktop\WSManager.class
+com\spacepong\desktop\ctrlStart.class
+com\spacepong\desktop\GameController.class
+com\spacepong\desktop\UtilsViews.class
+com\spacepong\desktop\UtilsWS.class
+com\spacepong\desktop\PongController.class
+com\spacepong\desktop\CtrlWait.class
+com\spacepong\desktop\UtilsWS$1.class
