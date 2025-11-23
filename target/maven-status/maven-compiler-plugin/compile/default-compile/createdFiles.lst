@@ -7,3 +7,4 @@ com\spacepong\desktop\UtilsWS.class
 com\spacepong\desktop\PongController.class
 com\spacepong\desktop\CtrlWait.class
 com\spacepong\desktop\UtilsWS$1.class
+com\spacepong\desktop\PongController$1.class

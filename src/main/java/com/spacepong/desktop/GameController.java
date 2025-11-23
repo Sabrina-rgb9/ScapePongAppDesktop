@@ -310,12 +310,29 @@ public class GameController {
             ctrlWait.updateTitle("¡GO!");
         }
 
-        // Reemplazar la escena actual por la vista de juego (no abrir nueva ventana)
+        // Reemplazar la escena actual por la vista de juego y forzar ventana cuadrada
         Platform.runLater(() -> {
             try {
                 Parent root = FXMLLoader.load(getClass().getResource("/assets/viewPong.fxml"));
 
-                // Buscar un Stage existente y sustituir su root
+                // intentar obtener tamaño preferido del playfield (fx:id="playfield")
+                double size = 600; // fallback
+                try {
+                    javafx.scene.Node pf = root.lookup("#playfield");
+                    if (pf instanceof javafx.scene.layout.Region) {
+                        double w = ((javafx.scene.layout.Region) pf).getPrefWidth();
+                        double h = ((javafx.scene.layout.Region) pf).getPrefHeight();
+                        if (w > 0 || h > 0) size = Math.max(w > 0 ? w : 0, h > 0 ? h : 0);
+                    } else {
+                        double pw = root.prefWidth(-1);
+                        double ph = root.prefHeight(-1);
+                        if (pw > 0 || ph > 0) size = Math.max(pw > 0 ? pw : 0, ph > 0 ? ph : 0);
+                    }
+                } catch (Exception ignored) {}
+
+                if (size <= 0) size = 600;
+
+                // buscar Stage visible y reemplazar su Scene por una Scene cuadrada
                 Stage target = null;
                 for (Window w : Window.getWindows()) {
                     if (w instanceof Stage s && s.isShowing()) {
@@ -324,32 +341,24 @@ public class GameController {
                     }
                 }
 
-                if (target != null && target.getScene() != null) {
-                    target.getScene().setRoot(root);
-                    target.sizeToScene();
+                Scene scene = new Scene(root, size, size);
+                if (target != null) {
+                    target.setScene(scene);
+                    target.setResizable(false);
+                    target.sizeToScene(); // asegura que la escena se ajuste
                     target.setTitle("SpacePong - Juego");
                 } else {
-                    // Fallback mínimo: si no hay Stage visible, usar el primero disponible o abrir nueva Stage
-                    if (target == null) {
-                        for (Window w : Window.getWindows()) {
-                            if (w instanceof Stage s) {
-                                target = s;
-                                break;
-                            }
-                        }
-                    }
-                    if (target != null && target.getScene() != null) {
-                        target.getScene().setRoot(root);
-                        target.sizeToScene();
-                        target.setTitle("SpacePong - Juego");
-                    } else {
-                        // última opción: abrir nueva Stage (rara vez ocurrirá)
-                        Stage newStage = new Stage();
-                        newStage.setScene(new Scene(root));
-                        newStage.setTitle("SpacePong - Juego");
-                        newStage.show();
-                    }
+                    // fallback: abrir nueva Stage si no hay ninguna disponible
+                    Stage newStage = new Stage();
+                    newStage.setScene(scene);
+                    newStage.setResizable(false);
+                    newStage.setTitle("SpacePong - Juego");
+                    newStage.show();
                 }
+
+                // marcar partida en curso
+                gameRunning = true;
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
