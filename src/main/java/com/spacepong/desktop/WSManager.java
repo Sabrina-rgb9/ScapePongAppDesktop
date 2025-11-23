@@ -84,16 +84,16 @@ public class WSManager {
     }
 
     public void onMessage(String message) {
-        // Nuevo manejo robusto y logs para depuración
-        System.out.println("WS RAW mensaje (len=" + (message == null ? 0 : message.length()) + "): [" + message + "]");
-
         if (message == null) return;
 
         String trimmed = message.trim();
-
         // Quitar BOM si existe
-        if (trimmed.startsWith("\uFEFF")) {
-            trimmed = trimmed.substring(1).trim();
+        if (trimmed.startsWith("\uFEFF")) trimmed = trimmed.substring(1).trim();
+
+        // Detectar rápidamente si es un gameState (el que llega en bucle) y suprimir el log bruto para ese caso
+        boolean isGameState = trimmed.contains("\"type\":\"gameState\"") || trimmed.contains("\"gameState\"");
+        if (!isGameState) {
+            System.out.println("WS RAW mensaje (len=" + trimmed.length() + "): [" + trimmed + "]");
         }
 
         // Si no empieza por { ni [, intentar buscar primer { o [
@@ -109,7 +109,44 @@ public class WSManager {
                 System.out.println("WS: encontrado JSON empezando en posición " + idx + " — se recorta prefijo");
                 trimmed = trimmed.substring(idx);
             } else {
-                System.err.println("WS: mensaje no JSON recibido, se ignora: " + trimmed);
+                int eq = trimmed.indexOf('=');
+                if (eq > 0) {
+                    String key = trimmed.substring(0, eq).trim();
+                    String val = trimmed.substring(eq + 1).trim();
+
+                    Object valueObj = val;
+                    if ("true".equalsIgnoreCase(val) || "false".equalsIgnoreCase(val)) {
+                        valueObj = Boolean.valueOf(val);
+                    } else {
+                        try {
+                            valueObj = Integer.parseInt(val);
+                        } catch (NumberFormatException nfe1) {
+                            try {
+                                valueObj = Double.parseDouble(val);
+                            } catch (NumberFormatException nfe2) {
+                                // dejar como String
+                            }
+                        }
+                    }
+
+                    JSONObject wrapper = new JSONObject();
+                    wrapper.put("type", "kv");
+                    wrapper.put("key", key);
+                    wrapper.put("value", valueObj);
+
+                    final String payload = wrapper.toString();
+                    if (!isGameState) System.out.println("WS: convertido key=value a JSON: " + payload);
+                    Platform.runLater(() -> {
+                        try {
+                            Main.gameController.handleMessage(payload);
+                        } catch (Exception e) {
+                            System.err.println("Error reenviando KV a GameController: " + e.getMessage());
+                        }
+                    });
+                    return;
+                }
+
+                if (!isGameState) System.err.println("WS: mensaje no JSON recibido, se ignora: " + trimmed);
                 return;
             }
         }
@@ -117,30 +154,24 @@ public class WSManager {
         try {
             Object parsed = new JSONTokener(trimmed).nextValue();
             if (parsed instanceof org.json.JSONObject) {
-                org.json.JSONObject obj = (org.json.JSONObject) parsed;
-                // ... llama al handler existente para JSONObject ...
-                handleJsonObject(obj);
+                handleJsonObject((org.json.JSONObject) parsed);
             } else if (parsed instanceof JSONArray) {
-                JSONArray arr = (JSONArray) parsed;
-                // ... llama al handler existente para JSONArray ...
-                handleJsonArray(arr);
+                handleJsonArray((JSONArray) parsed);
             } else {
-                System.err.println("WS: tipo inesperado al parsear JSON: " + parsed.getClass());
-                // Si no es JSONObject/JSONArray, reenviamos como mensaje no-JSON para depuración
+                if (!isGameState) System.err.println("WS: tipo inesperado al parsear JSON: " + parsed.getClass());
                 final String raw = trimmed;
-                Platform.runLater(() ->
-                    Main.gameController.handleWSError("Mensaje no-JSON recibido: " + raw)
-                );
+                Platform.runLater(() -> Main.gameController.handleWSError("Mensaje no-JSON recibido: " + raw));
             }
         } catch (Exception e) {
-            System.err.println("Error procesando mensaje WS: " + e.getMessage());
-            System.err.println("WS raw hex: " + toHex(message));
-            e.printStackTrace();
-
-            // Evitar lanzar la excepción hacia Main.gameController: informar vía handleWSError
+            if (!isGameState) {
+                System.err.println("Error procesando mensaje WS: " + e.getMessage());
+                System.err.println("WS raw hex: " + toHex(message));
+                e.printStackTrace();
+            }
+            // informar a GameController (silencioso para gameState)
             final String raw = trimmed;
             Platform.runLater(() ->
-                Main.gameController.handleWSError("Error parseando mensaje WS (no JSON): " + raw)
+                Main.gameController.handleWSError("Error parseando mensaje WS: " + (isGameState ? "[gameState]" : raw))
             );
         }
     }

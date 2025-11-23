@@ -11,6 +11,7 @@ import javafx.scene.text.Font;
 import java.io.FileWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class ctrlStart {
@@ -298,5 +299,57 @@ public class ctrlStart {
     // ✅ MÉTODO PARA OBTENER LA URL ACTUAL (puede ser útil para otros componentes)
     public String getCurrentServerUrl() {
         return currentServerUrl;
+    }
+
+    public void handleStartGame(JSONObject msg) {
+        try {
+            // Uso defensivo: optJSONArray en lugar de getJSONArray
+            JSONArray arr = msg.optJSONArray("players");
+
+            // Manejo de posibles formatos alternativos
+            if (arr == null) {
+                Object rawPlayers = msg.opt("players");
+                if (rawPlayers instanceof String) {
+                    String s = ((String) rawPlayers).trim();
+                    if (!s.isEmpty()) {
+                        String[] parts = s.split("[,;]");
+                        arr = new JSONArray();
+                        for (String p : parts) arr.put(p.trim());
+                    }
+                } else if (rawPlayers instanceof JSONObject) {
+                    // en caso de estructura inesperada, intentar extraer un array dentro
+                    JSONObject po = (JSONObject) rawPlayers;
+                    arr = po.optJSONArray("players");
+                }
+            }
+
+            if (arr == null || arr.length() < 2) {
+                // Log completo para depuración y salir sin excepción
+                System.err.println("handleStartGame: 'players' missing or invalid. payload: " + msg.toString());
+                return;
+            }
+
+            String p1 = arr.optString(0, "Jugador1");
+            String p2 = arr.optString(1, "Jugador2");
+
+            String me = WSManager.getInstance().getClientName();
+
+            if (ctrlWait != null) {
+                ctrlWait.updateTitle("Partida Encontrada!");
+
+                if (me.equals(p1)) {
+                    ctrlWait.updatePlayer(0, p1, true);
+                    ctrlWait.updatePlayer(1, p2, true);
+                } else {
+                    ctrlWait.updatePlayer(0, p2, true);
+                    ctrlWait.updatePlayer(1, p1, true);
+                }
+
+                ctrlWait.updateOverallStatus();
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error en handleStartGame: " + e.getMessage());
+        }
     }
 }

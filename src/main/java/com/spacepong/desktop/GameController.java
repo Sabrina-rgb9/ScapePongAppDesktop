@@ -18,6 +18,14 @@ public class GameController {
 
     private final CtrlWait ctrlWait;
 
+    // Añadidos: flags para gestionar petición/recepción de configuración
+    private boolean configRequested = false;
+    private boolean configReceived = false;
+
+    // Nuevo: control de ejecución de partida y deduplicación de gameState
+    private volatile boolean gameRunning = false;
+    private String lastGameStatePayload = null;
+
     public GameController() {
         ctrlWait = UtilsViews.getWaitController();
     }
@@ -45,6 +53,10 @@ public class GameController {
     }
 
     public void onConnectionClose() {
+        // detener procesado de estados de juego al cerrar conexión
+        gameRunning = false;
+        lastGameStatePayload = null;
+
         if (ctrlWait != null) {
             ctrlWait.resetWaitingRoom();
             ctrlWait.updateTitle("Conexión perdida");
@@ -76,8 +88,41 @@ public class GameController {
         try {
             if (response == null || response.trim().isEmpty()) return;
 
-            JSONObject msg = new JSONObject(response);
+            // manejar caso donde el servidor manda un array con un objeto: [{"type":"gameState", ...}]
+            JSONObject msg;
+            String trimmed = response.trim();
+            if (trimmed.startsWith("[")) {
+                JSONArray arr = new JSONArray(trimmed);
+                if (arr.length() == 0) return;
+                msg = arr.getJSONObject(0);
+            } else {
+                msg = new JSONObject(trimmed);
+            }
+
             String msgType = msg.optString("type", "").trim();
+
+            // Filtrar y deduplicar gameState para no procesar en bucle
+            if ("gameState".equalsIgnoreCase(msgType)) {
+                // Solo procesar si la partida está en curso
+                if (!gameRunning) return;
+
+                String normalized = msg.toString();
+                if (normalized.equals(lastGameStatePayload)) {
+                    // mensaje idéntico al anterior → ignorar
+                    return;
+                }
+                lastGameStatePayload = normalized;
+                // Aquí actualizarías la vista del juego (posición de pelota/palas/puntuación)
+                // Por ahora solo loguear o reenviar a la vista, p.ej.:
+                Platform.runLater(() -> {
+                    try {
+                        // Si tienes un controlador de la vista Pong puedes obtenerlo y actualizarlo
+                        // PongController pc = UtilsViews.getPongController();
+                        // pc.updateFromGameState(msg);
+                    } catch (Exception ignored) {}
+                });
+                return;
+            }
 
             // 1) Caso kv (clave=valor convertido por WSManager)
             if ("kv".equalsIgnoreCase(msgType)) {
@@ -114,7 +159,8 @@ public class GameController {
             if (msgType == null || msgType.isEmpty()) return;
 
             switch (msgType) {
-                case "configuration" -> sendRequestConfiguration();
+                // EN VEZ DE volver a pedir configuración al recibirla, la procesamos:
+                case "configuration" -> handleConfiguration(msg);
                 case "acceptRegister" -> handleAcceptRegister();
                 case "denyRegister" -> handleDenyRegister(msg);
                 case "startGame" -> handleStartGame(msg);
@@ -146,6 +192,26 @@ public class GameController {
         }
     }
 
+    public void handleConfiguration(JSONObject msg) {
+        try {
+            // marcar que la configuración ha sido recibida y permitir futuras peticiones si aplica
+            configReceived = true;
+            configRequested = false;
+
+            // procesar campos de configuración básicos si existen
+            String title = msg.optString("title", "");
+            if (ctrlWait != null) {
+                if (!title.isEmpty()) ctrlWait.updateTitle(title);
+                ctrlWait.updateOverallStatus();
+            }
+
+            // enviar registro del cliente tras recibir la configuración
+            sendRegisterMessage();
+        } catch (Exception e) {
+            System.err.println("Error procesando configuration: " + e.getMessage());
+        }
+    }
+
     public void handleDenyRegister(JSONObject msg) {
         String reason = msg.optString("reason", "Razón desconocida");
 
@@ -156,7 +222,40 @@ public class GameController {
 
     public void handleStartGame(JSONObject msg) {
         try {
-            JSONArray arr = msg.getJSONArray("players");
+            // Intentar obtener players como JSONArray directamente
+            JSONArray arr = msg.optJSONArray("players");
+
+            // Si no existe, intentar deducir un array dentro del objeto (por si el servidor usa otra estructura)
+            if (arr == null) {
+                for (String key : msg.keySet()) {
+                    Object v = msg.opt(key);
+                    if (v instanceof JSONArray) {
+                        // usar el primer JSONArray que parezca contener jugadores (strings)
+                        JSONArray candidate = (JSONArray) v;
+                        boolean allStrings = true;
+                        for (int i = 0; i < candidate.length(); i++) {
+                            if (!(candidate.opt(i) instanceof String)) {
+                                allStrings = false;
+                                break;
+                            }
+                        }
+                        if (allStrings && candidate.length() >= 2) {
+                            arr = candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Si aún no hay players válidos, registrar y salir sin excepcionar
+            if (arr == null || arr.length() < 2) {
+                System.err.println("handleStartGame: 'players' missing or invalid. payload: " + msg.toString());
+                return;
+            }
+
+            // marcar que hay al menos dos jugadores
+            atLeastTwoPlayers = true;
+
             String p1 = arr.optString(0, "Jugador1");
             String p2 = arr.optString(1, "Jugador2");
 
@@ -179,9 +278,13 @@ public class GameController {
         } catch (Exception e) {
             System.err.println("Error en handleStartGame: " + e.getMessage());
         }
+        // Tras procesar, intentar abrir si ya terminó el countdown
+        checkAndOpenGameIfReady();
     }
 
     public void handleStartCountdown() {
+        // Countdown empezando: resetear flag que indica que llegó a 0
+        countdownReachedZero = false;
         if (ctrlWait != null) {
             ctrlWait.updateTitle("Preparando...");
             ctrlWait.updateCountdown(3);
@@ -189,18 +292,84 @@ public class GameController {
     }
 
     public void handleRemainingCountdown(JSONObject msg) {
-        int remaining = msg.optInt("remainingCountdown", 0);
-        if (ctrlWait != null) ctrlWait.updateCountdown(remaining);
+        int remaining = msg.optInt("remainingCountdown", -1);
+        if (remaining >= 0 && ctrlWait != null) ctrlWait.updateCountdown(remaining);
+
+        // Si llega 0 en remainingCountdown, también tratamos como fin
+        if (remaining == 0) {
+            handleEndCountdown();
+        }
     }
 
     public void handleEndCountdown() {
+        // Marca que el countdown terminó
+        countdownReachedZero = true;
+
         if (ctrlWait != null) {
             ctrlWait.updateCountdown(0);
             ctrlWait.updateTitle("¡GO!");
         }
+
+        // Reemplazar la escena actual por la vista de juego y forzar ventana cuadrada
+        Platform.runLater(() -> {
+            try {
+                Parent root = FXMLLoader.load(getClass().getResource("/assets/viewPong.fxml"));
+
+                // intentar obtener tamaño preferido del playfield (fx:id="playfield")
+                double size = 600; // fallback
+                try {
+                    javafx.scene.Node pf = root.lookup("#playfield");
+                    if (pf instanceof javafx.scene.layout.Region) {
+                        double w = ((javafx.scene.layout.Region) pf).getPrefWidth();
+                        double h = ((javafx.scene.layout.Region) pf).getPrefHeight();
+                        if (w > 0 || h > 0) size = Math.max(w > 0 ? w : 0, h > 0 ? h : 0);
+                    } else {
+                        double pw = root.prefWidth(-1);
+                        double ph = root.prefHeight(-1);
+                        if (pw > 0 || ph > 0) size = Math.max(pw > 0 ? pw : 0, ph > 0 ? ph : 0);
+                    }
+                } catch (Exception ignored) {}
+
+                if (size <= 0) size = 600;
+
+                // buscar Stage visible y reemplazar su Scene por una Scene cuadrada
+                Stage target = null;
+                for (Window w : Window.getWindows()) {
+                    if (w instanceof Stage s && s.isShowing()) {
+                        target = s;
+                        break;
+                    }
+                }
+
+                Scene scene = new Scene(root, size, size);
+                if (target != null) {
+                    target.setScene(scene);
+                    target.setResizable(false);
+                    target.sizeToScene(); // asegura que la escena se ajuste
+                    target.setTitle("SpacePong - Juego");
+                } else {
+                    // fallback: abrir nueva Stage si no hay ninguna disponible
+                    Stage newStage = new Stage();
+                    newStage.setScene(scene);
+                    newStage.setResizable(false);
+                    newStage.setTitle("SpacePong - Juego");
+                    newStage.show();
+                }
+
+                // marcar partida en curso
+                gameRunning = true;
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public void handleGameOutcome(JSONObject msg) {
+        // finalizar partida: detener procesado de estados
+        gameRunning = false;
+        lastGameStatePayload = null;
+
         String winner = msg.optString("winner", "Desconocido");
         String loser = msg.optString("loser", "Desconocido");
 
@@ -216,6 +385,13 @@ public class GameController {
             ctrlWait.updatePlayer(0, WSManager.getInstance().getClientName(), true);
             ctrlWait.updateTitle("Esperando nueva partida...");
         }
+    }
+
+    public void handleGameStart() {
+        // marcar partida como activa para procesar gameState
+        gameRunning = true;
+        lastGameStatePayload = null;
+        if (ctrlWait != null) ctrlWait.handleGameReady();
     }
 
     public void handleErrorMessage(JSONObject msg) {
@@ -254,10 +430,6 @@ public class GameController {
         if (ctrlWait != null) ctrlWait.handleCountdown(value);
     }
 
-    public void handleGameStart() {
-        if (ctrlWait != null) ctrlWait.handleGameReady();
-    }
-
     // -------------------------
     // SENDERS
     // -------------------------
@@ -270,6 +442,10 @@ public class GameController {
     }
 
     private void sendRequestConfiguration() {
+        // evitar enviar múltiples peticiones seguidas
+        if (configRequested) return;
+        configRequested = true;
+
         JSONObject obj = new JSONObject();
         obj.put("type", "requestConfiguration");
         WSManager.getInstance().send(obj);
@@ -302,20 +478,35 @@ public class GameController {
             gameViewOpened = true; // evitar abrir varias veces
             Platform.runLater(() -> {
                 try {
-                    // Cargar FXML de pong
-                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/spacepong/desktop/pong.fxml"));
+                    String[] candidates = {
+                            "/com/spacepong/desktop/viewPong.fxml"
+                    };
+
+                    FXMLLoader loader = null;
+                    java.net.URL resUrl = null;
+                    for (String c : candidates) {
+                        resUrl = getClass().getResource(c);
+                        if (resUrl != null) {
+                            loader = new FXMLLoader(resUrl);
+                            break;
+                        }
+                    }
+
+                    if (loader == null) {
+                        System.err.println("checkAndOpenGameIfReady: no se encontró viewPong.fxml en las rutas probadas.");
+                        gameViewOpened = false;
+                        return;
+                    }
+
                     Parent root = loader.load();
 
-                    // Intentar obtener el Stage principal buscando una ventana visible
+                    // buscar Stage visible para reemplazar su root, si no, abrir nueva ventana
                     Stage primary = null;
                     try {
                         for (Window w : Window.getWindows()) {
-                            if (w instanceof Stage) {
-                                Stage s = (Stage) w;
-                                if (s.isShowing()) {
-                                    primary = s;
-                                    break;
-                                }
+                            if (w instanceof Stage s && s.isShowing()) {
+                                primary = s;
+                                break;
                             }
                         }
                     } catch (Throwable ignored) {}
@@ -330,9 +521,14 @@ public class GameController {
                         newStage.setTitle("SpacePong - Juego");
                         newStage.show();
                     }
+
+                    // marcar partida en curso para procesar gameState
+                    gameRunning = true;
+
                 } catch (IOException e) {
-                    System.err.println("No se pudo cargar pong.fxml: " + e.getMessage());
+                    System.err.println("No se pudo cargar viewPong FXML: " + e.getMessage());
                     e.printStackTrace();
+                    gameViewOpened = false;
                 }
             });
         }
