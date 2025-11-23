@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.shape.Circle?>
+<?import javafx.scene.shape.Line?>
+<?import javafx.scene.shape.Rectangle?>
+<?import javafx.scene.text.Font?>
+
+<VBox xmlns="http://javafx.com/javafx/11.0.1"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.spacepong.desktop.PongController"
+      spacing="8" alignment="TOP_CENTER">
+
+    <!-- padding correcto como elemento Insets -->
+    <padding>
+        <Insets top="10" right="10" bottom="10" left="10"/>
+    </padding>
+
+    <!-- Top: puntuaciones -->
+    <HBox spacing="8" prefHeight="30" prefWidth="600" alignment="CENTER_LEFT">
+        <Label fx:id="scoreLeftLabel" text="0" textFill="#00FF66">
+            <font>
+                <Font size="14"/>
+            </font>
+        </Label>
+
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <Label fx:id="scoreRightLabel" text="0" textFill="#00FF66">
+            <font>
+                <Font size="14"/>
+            </font>
+        </Label>
+    </HBox>
+
+    <!-- Playfield (cuadrado) -->
+    <StackPane prefWidth="600" prefHeight="600">
+        <Pane fx:id="playfield" prefWidth="600" prefHeight="600">
+
+            <!-- Fondo negro -->
+            <Rectangle x="0" y="0" width="600" height="600" fill="black" />
+
+            <!-- Borde del campo (cuadrado) en verde -->
+            <Rectangle x="0" y="0" width="600" height="600"
+                       fill="transparent" stroke="#00FF66" strokeWidth="2" />
+
+            <!-- Linea central: fx:id para configurarla en el controller -->
+            <Line fx:id="centerLine" startX="300" startY="0" endX="300" endY="600" stroke="#00FF66" strokeWidth="2"/>
+
+            <!-- Palas (izquierda y derecha) en verde -->
+            <Rectangle fx:id="leftPaddle" width="10" height="80" layoutX="20" layoutY="260" fill="#00FF66"/>
+            <Rectangle fx:id="rightPaddle" width="10" height="80" layoutX="570" layoutY="260" fill="#00FF66"/>
+
+            <!-- Pelota en verde -->
+            <Circle fx:id="ball" layoutX="300" layoutY="300" radius="8" fill="#00FF66"/>
+
+        </Pane>
+    </StackPane>
+
+</VBox>

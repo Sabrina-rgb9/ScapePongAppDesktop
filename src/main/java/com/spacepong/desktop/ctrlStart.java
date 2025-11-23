@@ -217,17 +217,9 @@ public class ctrlStart {
             // 4. Iniciar la conexión WebSocket al servidor SpacePong usando la URL del config
             String playerName = nameField.getText().trim();
             
-            boolean connectionStarted = Main.connectToServer(currentServerUrl, playerName);
-            
-            if (!connectionStarted) {
-                System.err.println("❌ No se pudo iniciar la conexión WebSocket");
-                System.err.println("🔧 URL utilizada: " + currentServerUrl);
-                UtilsViews.showStartViewWithAnimation();
-                showError("Error de Conexión", 
-                    "No se pudo conectar al servidor SpacePong en:\n" + 
-                    currentServerUrl + 
-                    "\n\nVerifique que el servidor esté ejecutándose y la URL sea correcta en config.json");
-            }
+            // Usar WSManager para conectar (GameController no expone connectToServer)
+            WSManager.getInstance().connect(currentServerUrl, playerName);
+            System.out.println("🔧 Conexión iniciada con WSManager a: " + currentServerUrl);
             
         } catch (Exception e) {
             System.err.println("❌ Error en showWaitingRoom: " + e.getMessage());
