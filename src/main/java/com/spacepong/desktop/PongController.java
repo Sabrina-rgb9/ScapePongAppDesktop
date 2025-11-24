@@ -169,7 +169,7 @@ public class PongController {
     // actualización de estado del juego desde gamecontroller
 
     public void updateFromGameState(JSONObject msg) {
-        System.out.println("updateFromGameState received: " + msg.toString());
+        // Actualiza el estado completo del juego con posiciones absolutas del servidor
         Platform.runLater(() -> {
             try {
                 JSONObject ballObj = msg.optJSONObject("ball");
@@ -181,15 +181,11 @@ public class PongController {
                 }
                 JSONObject paddles = msg.optJSONObject("paddles");
                 if(paddles != null) {
+                    // Aquí no invertimos según myPlayerNumber
                     double p1y = paddles.optDouble("p1", leftPaddle.getLayoutY());
                     double p2y = paddles.optDouble("p2", rightPaddle.getLayoutY());
-                    if(myPlayerNumber == 1) {
-                        leftPaddle.setLayoutY(p1y);
-                        rightPaddle.setLayoutY(p2y);
-                    } else {
-                        leftPaddle.setLayoutY(p2y);
-                        rightPaddle.setLayoutY(p1y);
-                    }
+                    leftPaddle.setLayoutY(p1y);
+                    rightPaddle.setLayoutY(p2y);
                 }
                 JSONObject scores = msg.optJSONObject("scores");
                 if(scores != null) {
