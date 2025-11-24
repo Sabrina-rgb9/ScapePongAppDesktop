@@ -84,103 +84,15 @@ public class GameController {
      *  - mensajes JSON con campo "type" (comportamiento original)
      *  - mensajes envoltorio {type:"kv", key: "...", value: ...} para avisos simples (player-count, countdown)
      */
-    public void handleMessage(String response) {
-        try {
-            if (response == null || response.trim().isEmpty()) return;
-
-            // manejar caso donde el servidor manda un array con un objeto: [{"type":"gameState", ...}]
-            JSONObject msg;
-            String trimmed = response.trim();
-            if (trimmed.startsWith("[")) {
-                JSONArray arr = new JSONArray(trimmed);
-                if (arr.length() == 0) return;
-                msg = arr.getJSONObject(0);
-            } else {
-                msg = new JSONObject(trimmed);
-            }
-
-            String msgType = msg.optString("type", "").trim();
-
-            // Filtrar y deduplicar gameState para no procesar en bucle
-            if ("gameState".equalsIgnoreCase(msgType)) {
-                // Solo procesar si la partida está en curso
-                if (!gameRunning) return;
-
-                String normalized = msg.toString();
-                if (normalized.equals(lastGameStatePayload)) {
-                    // mensaje idéntico al anterior → ignorar
-                    return;
-                }
-                lastGameStatePayload = normalized;
-                // Aquí actualizarías la vista del juego (posición de pelota/palas/puntuación)
-                // Por ahora solo loguear o reenviar a la vista, p.ej.:
-                Platform.runLater(() -> {
-                    try {
-                        // Si tienes un controlador de la vista Pong puedes obtenerlo y actualizarlo
-                        // PongController pc = UtilsViews.getPongController();
-                        // pc.updateFromGameState(msg);
-                    } catch (Exception ignored) {}
-                });
-                return;
-            }
-
-            // 1) Caso kv (clave=valor convertido por WSManager)
-            if ("kv".equalsIgnoreCase(msgType)) {
-                String key = msg.optString("key", "").trim();
-                Object val = msg.opt("value");
-
-                // playerRegistry flag
-                if (key.contains("playerRegistry.isAtLeastTwoPlayersAvalible")) {
-                    boolean v = false;
-                    if (val instanceof Boolean) v = (Boolean) val;
-                    else if (val != null) v = "true".equalsIgnoreCase(val.toString());
-                    atLeastTwoPlayers = v;
-                }
-
-                // countdown value
-                if (key.toLowerCase().contains("count")) {
-                    int n = 0;
-                    if (val instanceof Number) n = ((Number) val).intValue();
-                    else if (val != null) {
-                        try { n = Integer.parseInt(val.toString()); } catch (NumberFormatException ignored) {}
-                    }
-                    countdownReachedZero = (n == 0);
-
-                    // actualizar UI de ctrlWait si existe
-                    if (ctrlWait != null) ctrlWait.updateCountdown(n);
-                }
-
-                // comprobar apertura de vista juego
-                checkAndOpenGameIfReady();
-                return;
-            }
-
-            // 2) Mensajes JSON por tipo (comportamiento original)
-            if (msgType == null || msgType.isEmpty()) return;
-
-            switch (msgType) {
-                // EN VEZ DE volver a pedir configuración al recibirla, la procesamos:
-                case "configuration" -> handleConfiguration(msg);
-                case "acceptRegister" -> handleAcceptRegister();
-                case "denyRegister" -> handleDenyRegister(msg);
-                case "startGame" -> handleStartGame(msg);
-                case "startCountdown" -> handleStartCountdown();
-                case "remainingCountdown" -> handleRemainingCountdown(msg);
-                case "endCountdown" -> handleEndCountdown();
-                case "moveDSK" -> handleMoveDSK(msg);
-                case "gameOutcome" -> handleGameOutcome(msg);
-                case "error" -> handleErrorMessage(msg);
-                case "gameState" -> handleGameState(msg);
-                case "countdown" -> handleCountdown(msg);
-                case "gameStart" -> handleGameStart();
-            }
-
-        } catch (Exception e) {
-            System.err.println("Error procesando mensaje WS: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
+    public void handleMessage(String response) { 
+        try { 
+            if (response == null || response.trim().isEmpty()) 
+                return; JSONObject msg; String trimmed = response.trim(); 
+            if (trimmed.startsWith("[")) { 
+                JSONArray arr = new JSONArray(trimmed); 
+                if (arr.length() == 0) return; 
+                msg = arr.getJSONObject(0); }
+                 else { msg = new JSONObject(trimmed); } String type = msg.optString("type", "").trim(); if (type.isEmpty()) return; switch (type) { case "configuration" -> handleConfiguration(msg); case "acceptRegister" -> handleAcceptRegister(); case "denyRegister" -> handleDenyRegister(msg); case "startGame" -> handleStartGame(msg); case "startCountdown" -> handleStartCountdown(); case "remainingCountdown" -> handleRemainingCountdown(msg); case "endCountdown" -> handleEndCountdown(); case "moveDSK" -> handleMoveDSK(msg); case "gameOutcome" -> handleGameOutcome(msg); case "gameState" -> handleGameState(msg); case "countdown" -> handleCountdown(msg); case "gameStart" -> handleGameStart(); } } catch (Exception e) { System.err.println("Error procesando mensaje WS: " + e.getMessage()); e.printStackTrace(); } }
     // -------------------------
     // HANDLERS ORIGINALES
     // -------------------------
@@ -448,23 +360,6 @@ public class GameController {
         }
     }
 
-    /**
-     * Forwarder for moveDSK messages received from WS to the Pong view controller.
-     * Expects payload like: {"type":"moveDSK","up":true,"down":false}
-     */
-    public void handleMoveDSK(JSONObject msg) {
-        try {
-            // Forward to PongController if available
-            try {
-                com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
-                if (pc != null) {
-                    pc.handleMoveDSK(msg);
-                }
-            } catch (Exception ignored) {}
-        } catch (Exception e) {
-            System.err.println("handleMoveDSK: " + e.getMessage());
-        }
-    }
 
     public void handleCountdown(JSONObject msg) {
         int value = msg.optInt("value", 0);
@@ -575,4 +470,28 @@ public class GameController {
             });
         }
     }
+
+    // reenvia mensajes de tipo moveDSK al PongController
+
+    public void handleMoveDSK(JSONObject msg) {
+        try {
+            com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
+            if (pc != null) pc.handleMoveDSK(msg);
+        } catch (Exception e) {
+            System.err.println("Error reenviando moveDSK a PongController: " + e.getMessage());
+
+        }
+    }
+
+    // reenvia el estado del juego al pongcontroller
+
+    public void forwardGameStateToPong(JSONObject msg) {
+        try {
+            com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
+            if (pc != null) pc.updateFromGameState(msg);
+        } catch (Exception e) {
+            System.err.println("Error reenviando gameState a PongController: " + e.getMessage());
+        }
+    }
+
 }

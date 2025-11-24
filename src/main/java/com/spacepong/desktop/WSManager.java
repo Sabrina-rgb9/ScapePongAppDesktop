@@ -79,20 +79,6 @@ public class WSManager {
         }
     }
 
-    /**
-     * Convenience sender for movement updates coming from the client app/desktop.
-     * Legacy: sends an absolute value payload: {"type":"moveDSK","value":<0..1>}
-     */
-    public void sendMoveDSK(double value) {
-        try {
-            JSONObject obj = new JSONObject();
-            obj.put("type", "moveDSK");
-            obj.put("value", value);
-            send(obj);
-        } catch (Exception e) {
-            System.err.println("sendMoveDSK error: " + e.getMessage());
-        }
-    }
 
     /**
      * Preferred sender for keyboard-driven clients: {"type":"moveDSK","direction":"up|down|stop"}
@@ -107,6 +93,40 @@ public class WSManager {
             System.err.println("sendMoveDSK(direction) error: " + e.getMessage());
         }
     }
+
+    private void handleGameState(JSONObject json) {
+        try {
+            // --- Ball ---
+            JSONObject ball = json.getJSONObject("ball");
+            double ballX = ball.getDouble("x");
+            double ballY = ball.getDouble("y");
+
+            // --- Paddles ---
+            JSONObject paddles = json.getJSONObject("paddles");
+            double p1Y = paddles.getJSONObject("p1").getDouble("y");
+            double p2Y = paddles.getJSONObject("p2").getDouble("y");
+
+            // --- Score ---
+            JSONObject score = json.getJSONObject("score");
+            int score1 = score.getInt("p1");
+            int score2 = score.getInt("p2");
+
+            // --- Llamar al controlador ---
+            PongController controller = UtilsViews.getPongController();
+            if (controller != null) {
+                controller.updateFromServer(
+                    p1Y, p2Y,
+                    ballX, ballY,
+                    score1, score2
+                );
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error parsing gameState: " + e.getMessage());
+        }
+    }
+
+
 
     public String getClientName() {
         return clientName;
@@ -205,7 +225,6 @@ public class WSManager {
         }
     }
 
-    // helper para debug (puedes añadirlo en la misma clase)
     private String toHex(String s) {
         if (s == null) return "null";
         StringBuilder sb = new StringBuilder();
@@ -230,6 +249,7 @@ public class WSManager {
         } catch (Exception e) {
             System.err.println("Error manejando JSONObject: " + e.getMessage());
         }
+
     }
 
     private void handleJsonArray(JSONArray arr) {
@@ -246,4 +266,13 @@ public class WSManager {
             System.err.println("Error manejando JSONArray: " + e.getMessage());
         }
     }
+
+    public void forwardMoveDSK(JSONObject msg) {
+        Platform.runLater(() -> Main.gameController.handleMoveDSK(msg));
+    }
+
+    public void forwardGameStateToPong(JSONObject msg) {
+        Platform.runLater(() -> Main.gameController.forwardGameStateToPong(msg));
+    }
+
 }

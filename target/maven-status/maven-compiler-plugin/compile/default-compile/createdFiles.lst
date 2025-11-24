@@ -3,7 +3,6 @@ com/spacepong/desktop/UtilsViews.class
 com/spacepong/desktop/GameController.class
 com/spacepong/desktop/WSManager.class
 com/spacepong/desktop/UtilsWS$1.class
-com/spacepong/desktop/PongController$1.class
 com/spacepong/desktop/PongController.class
 com/spacepong/desktop/CtrlWait.class
 com/spacepong/desktop/UtilsWS.class
