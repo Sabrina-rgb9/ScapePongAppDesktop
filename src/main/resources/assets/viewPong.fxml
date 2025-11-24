@@ -21,7 +21,8 @@
         <Insets top="10" right="10" bottom="10" left="10"/>
     </padding>
 
-    <StackPane prefWidth="600" prefHeight="600">
+    <StackPane prefWidth="800" prefHeight="600">
+        <!-- Playfield centered; keyboard controls (arrows) are used for movement -->
         <!-- make playfield focusTraversable so it can grab keyboard focus -->
         <Pane fx:id="playfield" prefWidth="600" prefHeight="600" focusTraversable="true">
 
@@ -52,6 +53,8 @@
             <Rectangle fx:id="rightPaddle" width="10" height="80" layoutX="570" layoutY="260" fill="#00FF66" opacity="0.45"/>
 
             <Circle fx:id="ball" layoutX="300" layoutY="300" radius="8" fill="#00FF66"/>
+
+            <!-- No canvas for desktop build; server-driven updates will move paddles via messages -->
 
         </Pane>
     </StackPane>

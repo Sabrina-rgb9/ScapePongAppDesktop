@@ -17,6 +17,8 @@ public class UtilsViews {
 
     public static StackPane parentContainer = new StackPane();
     public static ArrayList<Object> controllers = new ArrayList<>();
+    // Optional reference to PongController cuando la vista de juego está cargada
+    private static com.spacepong.desktop.PongController pongController = null;
 
     // Add viewStart to the container
     public static void addStartView() {
@@ -99,6 +101,15 @@ public class UtilsViews {
             index++;
         }
         return null;
+    }
+
+    // Pong controller registration (la propia vista Pong se registra en su initialize)
+    public static void setPongController(com.spacepong.desktop.PongController pc) {
+        pongController = pc;
+    }
+
+    public static com.spacepong.desktop.PongController getPongController() {
+        return pongController;
     }
 
     // Get CtrlStart controller

@@ -79,6 +79,35 @@ public class WSManager {
         }
     }
 
+    /**
+     * Convenience sender for movement updates coming from the client app/desktop.
+     * Legacy: sends an absolute value payload: {"type":"moveDSK","value":<0..1>}
+     */
+    public void sendMoveDSK(double value) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("type", "moveDSK");
+            obj.put("value", value);
+            send(obj);
+        } catch (Exception e) {
+            System.err.println("sendMoveDSK error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Preferred sender for keyboard-driven clients: {"type":"moveDSK","direction":"up|down|stop"}
+     */
+    public void sendMoveDSK(String direction) {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("type", "moveDSK");
+            obj.put("direction", direction);
+            send(obj);
+        } catch (Exception e) {
+            System.err.println("sendMoveDSK(direction) error: " + e.getMessage());
+        }
+    }
+
     public String getClientName() {
         return clientName;
     }

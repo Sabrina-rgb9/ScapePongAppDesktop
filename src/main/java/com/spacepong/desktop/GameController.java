@@ -167,6 +167,7 @@ public class GameController {
                 case "startCountdown" -> handleStartCountdown();
                 case "remainingCountdown" -> handleRemainingCountdown(msg);
                 case "endCountdown" -> handleEndCountdown();
+                case "moveDSK" -> handleMoveDSK(msg);
                 case "gameOutcome" -> handleGameOutcome(msg);
                 case "error" -> handleErrorMessage(msg);
                 case "gameState" -> handleGameState(msg);
@@ -222,42 +223,55 @@ public class GameController {
 
     public void handleStartGame(JSONObject msg) {
         try {
-            // Intentar obtener players como JSONArray directamente
+            // Intentar obtener players en varios formatos:
+            // 1) campo "players" como JSONArray
+            // 2) campos separados "player1" y "player2"
+            // 3) buscar cualquier JSONArray en el objeto que parezca contener strings
             JSONArray arr = msg.optJSONArray("players");
+            String p1 = null;
+            String p2 = null;
 
-            // Si no existe, intentar deducir un array dentro del objeto (por si el servidor usa otra estructura)
-            if (arr == null) {
-                for (String key : msg.keySet()) {
-                    Object v = msg.opt(key);
-                    if (v instanceof JSONArray) {
-                        // usar el primer JSONArray que parezca contener jugadores (strings)
-                        JSONArray candidate = (JSONArray) v;
-                        boolean allStrings = true;
-                        for (int i = 0; i < candidate.length(); i++) {
-                            if (!(candidate.opt(i) instanceof String)) {
-                                allStrings = false;
+            // 1) players array
+            if (arr != null && arr.length() >= 2) {
+                p1 = arr.optString(0, "Jugador1");
+                p2 = arr.optString(1, "Jugador2");
+            } else {
+                // 2) player1/player2 fields
+                if (msg.has("player1") && msg.has("player2")) {
+                    p1 = msg.optString("player1", "Jugador1");
+                    p2 = msg.optString("player2", "Jugador2");
+                } else {
+                    // 3) intentar deducir un array dentro del objeto (por si el servidor usa otra estructura)
+                    for (String key : msg.keySet()) {
+                        Object v = msg.opt(key);
+                        if (v instanceof JSONArray) {
+                            // usar el primer JSONArray que parezca contener jugadores (strings)
+                            JSONArray candidate = (JSONArray) v;
+                            boolean allStrings = true;
+                            for (int i = 0; i < candidate.length(); i++) {
+                                if (!(candidate.opt(i) instanceof String)) {
+                                    allStrings = false;
+                                    break;
+                                }
+                            }
+                            if (allStrings && candidate.length() >= 2) {
+                                p1 = candidate.optString(0, "Jugador1");
+                                p2 = candidate.optString(1, "Jugador2");
                                 break;
                             }
-                        }
-                        if (allStrings && candidate.length() >= 2) {
-                            arr = candidate;
-                            break;
                         }
                     }
                 }
             }
 
             // Si aún no hay players válidos, registrar y salir sin excepcionar
-            if (arr == null || arr.length() < 2) {
-                System.err.println("handleStartGame: 'players' missing or invalid. payload: " + msg.toString());
+            if (p1 == null || p2 == null) {
+                System.err.println("handleStartGame: could not resolve player1/player2. payload: " + msg.toString());
                 return;
             }
 
             // marcar que hay al menos dos jugadores
             atLeastTwoPlayers = true;
-
-            String p1 = arr.optString(0, "Jugador1");
-            String p2 = arr.optString(1, "Jugador2");
 
             String me = WSManager.getInstance().getClientName();
 
@@ -271,8 +285,16 @@ public class GameController {
                     ctrlWait.updatePlayer(0, p2, true);
                     ctrlWait.updatePlayer(1, p1, true);
                 }
-
                 ctrlWait.updateOverallStatus();
+
+                // Inform PongController which player this client is so it can enable/disable sliders
+                try {
+                    com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
+                    if (pc != null) {
+                        if (me.equals(p1)) pc.setPlayerNumber(1);
+                        else pc.setPlayerNumber(2);
+                    }
+                } catch (Exception ignored) {}
             }
 
         } catch (Exception e) {
@@ -280,6 +302,7 @@ public class GameController {
         }
         // Tras procesar, intentar abrir si ya terminó el countdown
         checkAndOpenGameIfReady();
+        
     }
 
     public void handleStartCountdown() {
@@ -425,6 +448,24 @@ public class GameController {
         }
     }
 
+    /**
+     * Forwarder for moveDSK messages received from WS to the Pong view controller.
+     * Expects payload like: {"type":"moveDSK","up":true,"down":false}
+     */
+    public void handleMoveDSK(JSONObject msg) {
+        try {
+            // Forward to PongController if available
+            try {
+                com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
+                if (pc != null) {
+                    pc.handleMoveDSK(msg);
+                }
+            } catch (Exception ignored) {}
+        } catch (Exception e) {
+            System.err.println("handleMoveDSK: " + e.getMessage());
+        }
+    }
+
     public void handleCountdown(JSONObject msg) {
         int value = msg.optInt("value", 0);
         if (ctrlWait != null) ctrlWait.handleCountdown(value);
@@ -478,9 +519,10 @@ public class GameController {
             gameViewOpened = true; // evitar abrir varias veces
             Platform.runLater(() -> {
                 try {
-                    String[] candidates = {
-                            "/com/spacepong/desktop/viewPong.fxml"
-                    };
+            String[] candidates = {
+                "/assets/viewPong.fxml",
+                "/com/spacepong/desktop/viewPong.fxml"
+            };
 
                     FXMLLoader loader = null;
                     java.net.URL resUrl = null;
