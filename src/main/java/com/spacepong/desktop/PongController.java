@@ -1,5 +1,7 @@
 package com.spacepong.desktop;
 
+import org.json.JSONObject;
+
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -9,7 +11,6 @@ import javafx.scene.layout.Pane;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
-import org.json.JSONObject;
 
 public class PongController {
 
@@ -164,9 +165,11 @@ public class PongController {
         WSManager.getInstance().sendMoveDSK(direction);
 
     }
+    
     // actualización de estado del juego desde gamecontroller
 
     public void updateFromGameState(JSONObject msg) {
+        System.out.println("updateFromGameState received: " + msg.toString());
         Platform.runLater(() -> {
             try {
                 JSONObject ballObj = msg.optJSONObject("ball");
