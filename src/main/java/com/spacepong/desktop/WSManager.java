@@ -238,19 +238,35 @@ public class WSManager {
     // Reenvían JSONObject/JSONArray a Main.gameController como mensaje String
     private void handleJsonObject(JSONObject obj) {
         try {
-            final String payload = obj.toString();
-            Platform.runLater(() -> {
-                try {
-                    Main.gameController.handleMessage(payload);
-                } catch (Exception e) {
-                    System.err.println("Error al reenviar JSONObject a GameController: " + e.getMessage());
-                }
-            });
-        } catch (Exception e) {
-            System.err.println("Error manejando JSONObject: " + e.getMessage());
-        }
+            String type = obj.optString("type", "");
 
+            switch(type) {
+
+                case "gameState":
+                    handleGameState(obj);
+                    return;
+
+                case "moveDSK":
+                    forwardMoveDSK(obj);
+                    return;
+
+                default:
+                    // Reenviar todo lo demás al GameController
+                    final String payload = obj.toString();
+                    Platform.runLater(() -> {
+                        try {
+                            Main.gameController.handleMessage(payload);
+                        } catch (Exception e) {
+                            System.err.println("Error reenviando JSON genérico a GameController: " + e.getMessage());
+                        }
+                    });
+            }
+
+        } catch (Exception e) {
+            System.err.println("WSManager.handleJsonObject ERROR: " + e.getMessage());
+        }
     }
+
 
     private void handleJsonArray(JSONArray arr) {
         try {

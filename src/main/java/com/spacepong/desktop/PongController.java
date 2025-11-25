@@ -21,6 +21,8 @@ public class PongController {
     @FXML private Label scoreLeftLabel;
     @FXML private Label scoreRightLabel;
     @FXML private Line centerLine;
+    @FXML Pane gameArea;
+
 
     // quién soy yo: 1 = izquierda, 2 = derecha
     private int myPlayerNumber = 1;
@@ -92,22 +94,22 @@ public class PongController {
     public void updateFromServer(double p1Y, double p2Y, double ballX, double ballY, int scoreLeft, int scoreRight) {
         Platform.runLater(() -> {
 
-            // aplicar valores segun quien soy yo
-            if (myPlayerNumber == 1) {
-                leftPaddle.setLayoutY(p1Y);
-                rightPaddle.setLayoutY(p2Y);
-            } else {
-                leftPaddle.setLayoutY(p2Y);
-                rightPaddle.setLayoutY(p1Y);
-            }
+            double fieldH = playfield.getHeight();
+            double fieldW = playfield.getWidth();
 
-            ball.setLayoutX(ballX);
-            ball.setLayoutY(ballY);
+            leftPaddle.setLayoutY(p1Y * fieldH);
+            rightPaddle.setLayoutY(p2Y * fieldH);
+
+            ball.setLayoutX(ballX * fieldW);
+            ball.setLayoutY(ballY * fieldH);
 
             scoreLeftLabel.setText(String.valueOf(scoreLeft));
             scoreRightLabel.setText(String.valueOf(scoreRight));
         });
     }
+
+
+
 
     // ====================
     // LAYOUT
@@ -133,8 +135,8 @@ public class PongController {
         rightPaddle.setLayoutX(w - margin - paddleW);
 
         // centrar
-        leftPaddle.setLayoutY((h - paddleH) / 2);
-        rightPaddle.setLayoutY((h - paddleH) / 2);
+        // leftPaddle.setLayoutY((h - paddleH) / 2);
+        // rightPaddle.setLayoutY((h - paddleH) / 2);
 
         ball.setRadius(size * BALL_RADIUS_RATIO);
         ball.setLayoutX(w / 2);
@@ -142,61 +144,71 @@ public class PongController {
     }
 
     // movimiento enviados por wsmanager desde gamecontroller
-
     public void handleMoveDSK(JSONObject msg) {
-        // Platform.runLater(() -> {
-        //     try {
-        //         boolean up = msg.optBoolean("down", false);
-        //         boolean down = msg.optBoolean("up", false);
-        //         Rectangle myPaddle = (myPlayerNumber == 1) ? leftPaddle : rightPaddle;
-        //         double delta = 5;
-        //         double newY = myPaddle.getLayoutY();
-        //         if(up) newY -= delta;
-        //         if(down) newY += delta;
-        //         if(newY < 0) newY = 0;
-        //         if(newY + myPaddle.getHeight() > playfield.getHeight()) newY = playfield.getHeight() - myPaddle.getHeight();
-        //         myPaddle.setLayoutY(newY);
-        //     } catch (Exception e) {
-        //         System.err.println("handleMoveDSK error: " + e.getMessage());
-        //     }
-        // });
+        Platform.runLater(() -> {
+            try {
+                boolean up = msg.optString("direction").equals("up");
+                boolean down = msg.optString("direction").equals("down");
 
-       String direction = msg.optString("direction", "");
-        WSManager.getInstance().sendMoveDSK(direction);
+                Rectangle paddle = (myPlayerNumber == 1) ? leftPaddle : rightPaddle;
 
+                double delta = 5;
+                double newY = paddle.getLayoutY();
+
+                if (up) newY -= delta;
+                if (down) newY += delta;
+
+                // límites
+                if (newY < 0) newY = 0;
+                if (newY + paddle.getHeight() > playfield.getHeight())
+                    newY = playfield.getHeight() - paddle.getHeight();
+
+                paddle.setLayoutY(newY);
+
+            } catch (Exception e) {
+                System.err.println("handleMoveDSK error: " + e.getMessage());
+            }
+        });
     }
+
     
     // actualización de estado del juego desde gamecontroller
 
     public void updateFromGameState(JSONObject msg) {
-        // Actualiza el estado completo del juego con posiciones absolutas del servidor
         Platform.runLater(() -> {
             try {
+
+                // === BALL ===
                 JSONObject ballObj = msg.optJSONObject("ball");
-                if(ballObj != null) {
-                    double x = ballObj.optDouble("x", ball.getLayoutX());
-                    double y = ballObj.optDouble("y", ball.getLayoutY());
+                if (ballObj != null) {
+                    double x = ballObj.optDouble("x", 0) * gameArea.getWidth();
+                    double y = ballObj.optDouble("y", 0) * gameArea.getHeight();
                     ball.setLayoutX(x);
                     ball.setLayoutY(y);
+                    System.out.println("Ball: " + ballObj);
                 }
+
+                // === PADDLES ===
                 JSONObject paddles = msg.optJSONObject("paddles");
-                if(paddles != null) {
-                    // Aquí no invertimos según myPlayerNumber
-                    double p1y = paddles.optDouble("p1", leftPaddle.getLayoutY());
-                    double p2y = paddles.optDouble("p2", rightPaddle.getLayoutY());
+                if (paddles != null) {
+                    double p1y = paddles.optDouble("p1", 0) * gameArea.getHeight();
+                    double p2y = paddles.optDouble("p2", 0) * gameArea.getHeight();
                     leftPaddle.setLayoutY(p1y);
                     rightPaddle.setLayoutY(p2y);
+                    System.out.println("Paddles: " + paddles);
                 }
+
+                // === SCORES ===
                 JSONObject scores = msg.optJSONObject("scores");
-                if(scores != null) {
-                    int s1 = scores.optInt("p1", Integer.parseInt(scoreLeftLabel.getText()));
-                    int s2 = scores.optInt("p2", Integer.parseInt(scoreRightLabel.getText()));
-                    scoreLeftLabel.setText(String.valueOf(s1));
-                    scoreRightLabel.setText(String.valueOf(s2));
+                if (scores != null) {
+                    scoreLeftLabel.setText(String.valueOf(scores.optInt("p1", 0)));
+                    scoreRightLabel.setText(String.valueOf(scores.optInt("p2", 0)));
                 }
+
             } catch (Exception e) {
                 System.err.println("updateFromGameState error: " + e.getMessage());
             }
         });
     }
+
 }

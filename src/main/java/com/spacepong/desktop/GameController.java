@@ -489,9 +489,12 @@ public class GameController {
         try {
             com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
             if (pc != null) pc.updateFromGameState(msg);
+                    System.out.println("forwardGameStateToPong pc=" + pc);
         } catch (Exception e) {
             System.err.println("Error reenviando gameState a PongController: " + e.getMessage());
         }
+
+
     }
 
 }
