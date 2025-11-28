@@ -84,102 +84,15 @@ public class GameController {
      *  - mensajes JSON con campo "type" (comportamiento original)
      *  - mensajes envoltorio {type:"kv", key: "...", value: ...} para avisos simples (player-count, countdown)
      */
-    public void handleMessage(String response) {
-        try {
-            if (response == null || response.trim().isEmpty()) return;
-
-            // manejar caso donde el servidor manda un array con un objeto: [{"type":"gameState", ...}]
-            JSONObject msg;
-            String trimmed = response.trim();
-            if (trimmed.startsWith("[")) {
-                JSONArray arr = new JSONArray(trimmed);
-                if (arr.length() == 0) return;
-                msg = arr.getJSONObject(0);
-            } else {
-                msg = new JSONObject(trimmed);
-            }
-
-            String msgType = msg.optString("type", "").trim();
-
-            // Filtrar y deduplicar gameState para no procesar en bucle
-            if ("gameState".equalsIgnoreCase(msgType)) {
-                // Solo procesar si la partida está en curso
-                if (!gameRunning) return;
-
-                String normalized = msg.toString();
-                if (normalized.equals(lastGameStatePayload)) {
-                    // mensaje idéntico al anterior → ignorar
-                    return;
-                }
-                lastGameStatePayload = normalized;
-                // Aquí actualizarías la vista del juego (posición de pelota/palas/puntuación)
-                // Por ahora solo loguear o reenviar a la vista, p.ej.:
-                Platform.runLater(() -> {
-                    try {
-                        // Si tienes un controlador de la vista Pong puedes obtenerlo y actualizarlo
-                        // PongController pc = UtilsViews.getPongController();
-                        // pc.updateFromGameState(msg);
-                    } catch (Exception ignored) {}
-                });
-                return;
-            }
-
-            // 1) Caso kv (clave=valor convertido por WSManager)
-            if ("kv".equalsIgnoreCase(msgType)) {
-                String key = msg.optString("key", "").trim();
-                Object val = msg.opt("value");
-
-                // playerRegistry flag
-                if (key.contains("playerRegistry.isAtLeastTwoPlayersAvalible")) {
-                    boolean v = false;
-                    if (val instanceof Boolean) v = (Boolean) val;
-                    else if (val != null) v = "true".equalsIgnoreCase(val.toString());
-                    atLeastTwoPlayers = v;
-                }
-
-                // countdown value
-                if (key.toLowerCase().contains("count")) {
-                    int n = 0;
-                    if (val instanceof Number) n = ((Number) val).intValue();
-                    else if (val != null) {
-                        try { n = Integer.parseInt(val.toString()); } catch (NumberFormatException ignored) {}
-                    }
-                    countdownReachedZero = (n == 0);
-
-                    // actualizar UI de ctrlWait si existe
-                    if (ctrlWait != null) ctrlWait.updateCountdown(n);
-                }
-
-                // comprobar apertura de vista juego
-                checkAndOpenGameIfReady();
-                return;
-            }
-
-            // 2) Mensajes JSON por tipo (comportamiento original)
-            if (msgType == null || msgType.isEmpty()) return;
-
-            switch (msgType) {
-                // EN VEZ DE volver a pedir configuración al recibirla, la procesamos:
-                case "configuration" -> handleConfiguration(msg);
-                case "acceptRegister" -> handleAcceptRegister();
-                case "denyRegister" -> handleDenyRegister(msg);
-                case "startGame" -> handleStartGame(msg);
-                case "startCountdown" -> handleStartCountdown();
-                case "remainingCountdown" -> handleRemainingCountdown(msg);
-                case "endCountdown" -> handleEndCountdown();
-                case "gameOutcome" -> handleGameOutcome(msg);
-                case "error" -> handleErrorMessage(msg);
-                case "gameState" -> handleGameState(msg);
-                case "countdown" -> handleCountdown(msg);
-                case "gameStart" -> handleGameStart();
-            }
-
-        } catch (Exception e) {
-            System.err.println("Error procesando mensaje WS: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
+    public void handleMessage(String response) { 
+        try { 
+            if (response == null || response.trim().isEmpty()) 
+                return; JSONObject msg; String trimmed = response.trim(); 
+            if (trimmed.startsWith("[")) { 
+                JSONArray arr = new JSONArray(trimmed); 
+                if (arr.length() == 0) return; 
+                msg = arr.getJSONObject(0); }
+                 else { msg = new JSONObject(trimmed); } String type = msg.optString("type", "").trim(); if (type.isEmpty()) return; switch (type) { case "configuration" -> handleConfiguration(msg); case "acceptRegister" -> handleAcceptRegister(); case "denyRegister" -> handleDenyRegister(msg); case "startGame" -> handleStartGame(msg); case "startCountdown" -> handleStartCountdown(); case "remainingCountdown" -> handleRemainingCountdown(msg); case "endCountdown" -> handleEndCountdown(); case "moveDSK" -> handleMoveDSK(msg); case "gameOutcome" -> handleGameOutcome(msg); case "gameState" -> handleGameState(msg); case "countdown" -> handleCountdown(msg); case "gameStart" -> handleGameStart(); } } catch (Exception e) { System.err.println("Error procesando mensaje WS: " + e.getMessage()); e.printStackTrace(); } }
     // -------------------------
     // HANDLERS ORIGINALES
     // -------------------------
@@ -222,42 +135,55 @@ public class GameController {
 
     public void handleStartGame(JSONObject msg) {
         try {
-            // Intentar obtener players como JSONArray directamente
+            // Intentar obtener players en varios formatos:
+            // 1) campo "players" como JSONArray
+            // 2) campos separados "player1" y "player2"
+            // 3) buscar cualquier JSONArray en el objeto que parezca contener strings
             JSONArray arr = msg.optJSONArray("players");
+            String p1 = null;
+            String p2 = null;
 
-            // Si no existe, intentar deducir un array dentro del objeto (por si el servidor usa otra estructura)
-            if (arr == null) {
-                for (String key : msg.keySet()) {
-                    Object v = msg.opt(key);
-                    if (v instanceof JSONArray) {
-                        // usar el primer JSONArray que parezca contener jugadores (strings)
-                        JSONArray candidate = (JSONArray) v;
-                        boolean allStrings = true;
-                        for (int i = 0; i < candidate.length(); i++) {
-                            if (!(candidate.opt(i) instanceof String)) {
-                                allStrings = false;
+            // 1) players array
+            if (arr != null && arr.length() >= 2) {
+                p1 = arr.optString(0, "Jugador1");
+                p2 = arr.optString(1, "Jugador2");
+            } else {
+                // 2) player1/player2 fields
+                if (msg.has("player1") && msg.has("player2")) {
+                    p1 = msg.optString("player1", "Jugador1");
+                    p2 = msg.optString("player2", "Jugador2");
+                } else {
+                    // 3) intentar deducir un array dentro del objeto (por si el servidor usa otra estructura)
+                    for (String key : msg.keySet()) {
+                        Object v = msg.opt(key);
+                        if (v instanceof JSONArray) {
+                            // usar el primer JSONArray que parezca contener jugadores (strings)
+                            JSONArray candidate = (JSONArray) v;
+                            boolean allStrings = true;
+                            for (int i = 0; i < candidate.length(); i++) {
+                                if (!(candidate.opt(i) instanceof String)) {
+                                    allStrings = false;
+                                    break;
+                                }
+                            }
+                            if (allStrings && candidate.length() >= 2) {
+                                p1 = candidate.optString(0, "Jugador1");
+                                p2 = candidate.optString(1, "Jugador2");
                                 break;
                             }
-                        }
-                        if (allStrings && candidate.length() >= 2) {
-                            arr = candidate;
-                            break;
                         }
                     }
                 }
             }
 
             // Si aún no hay players válidos, registrar y salir sin excepcionar
-            if (arr == null || arr.length() < 2) {
-                System.err.println("handleStartGame: 'players' missing or invalid. payload: " + msg.toString());
+            if (p1 == null || p2 == null) {
+                System.err.println("handleStartGame: could not resolve player1/player2. payload: " + msg.toString());
                 return;
             }
 
             // marcar que hay al menos dos jugadores
             atLeastTwoPlayers = true;
-
-            String p1 = arr.optString(0, "Jugador1");
-            String p2 = arr.optString(1, "Jugador2");
 
             String me = WSManager.getInstance().getClientName();
 
@@ -271,8 +197,16 @@ public class GameController {
                     ctrlWait.updatePlayer(0, p2, true);
                     ctrlWait.updatePlayer(1, p1, true);
                 }
-
                 ctrlWait.updateOverallStatus();
+
+                // Inform PongController which player this client is so it can enable/disable sliders
+                try {
+                    com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
+                    if (pc != null) {
+                        if (me.equals(p1)) pc.setPlayerNumber(1);
+                        else pc.setPlayerNumber(2);
+                    }
+                } catch (Exception ignored) {}
             }
 
         } catch (Exception e) {
@@ -280,6 +214,7 @@ public class GameController {
         }
         // Tras procesar, intentar abrir si ya terminó el countdown
         checkAndOpenGameIfReady();
+        
     }
 
     public void handleStartCountdown() {
@@ -425,6 +360,7 @@ public class GameController {
         }
     }
 
+
     public void handleCountdown(JSONObject msg) {
         int value = msg.optInt("value", 0);
         if (ctrlWait != null) ctrlWait.handleCountdown(value);
@@ -478,9 +414,10 @@ public class GameController {
             gameViewOpened = true; // evitar abrir varias veces
             Platform.runLater(() -> {
                 try {
-                    String[] candidates = {
-                            "/com/spacepong/desktop/viewPong.fxml"
-                    };
+            String[] candidates = {
+                "/assets/viewPong.fxml",
+                "/com/spacepong/desktop/viewPong.fxml"
+            };
 
                     FXMLLoader loader = null;
                     java.net.URL resUrl = null;
@@ -533,4 +470,31 @@ public class GameController {
             });
         }
     }
+
+    // reenvia mensajes de tipo moveDSK al PongController
+
+    public void handleMoveDSK(JSONObject msg) {
+        try {
+            com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
+            if (pc != null) pc.handleMoveDSK(msg);
+        } catch (Exception e) {
+            System.err.println("Error reenviando moveDSK a PongController: " + e.getMessage());
+
+        }
+    }
+
+    // reenvia el estado del juego al pongcontroller
+
+    public void forwardGameStateToPong(JSONObject msg) {
+        try {
+            com.spacepong.desktop.PongController pc = UtilsViews.getPongController();
+            if (pc != null) pc.updateFromGameState(msg);
+                    System.out.println("forwardGameStateToPong pc=" + pc);
+        } catch (Exception e) {
+            System.err.println("Error reenviando gameState a PongController: " + e.getMessage());
+        }
+
+
+    }
+
 }

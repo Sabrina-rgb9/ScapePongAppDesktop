@@ -2,58 +2,44 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.image.Image?>
-<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
-<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.shape.Circle?>
 <?import javafx.scene.shape.Line?>
 <?import javafx.scene.shape.Rectangle?>
 <?import javafx.scene.text.Font?>
 
-<VBox xmlns="http://javafx.com/javafx/11.0.1"
-      xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.spacepong.desktop.PongController"
-      spacing="0" alignment="CENTER">
+<VBox alignment="CENTER" spacing="0" style="-fx-background-color: #0B0011;" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.spacepong.desktop.PongController">
 
     <padding>
-        <Insets top="10" right="10" bottom="10" left="10"/>
+        <Insets bottom="10" left="10" right="10" top="10" />
     </padding>
 
-    <StackPane prefWidth="600" prefHeight="600">
-        <!-- make playfield focusTraversable so it can grab keyboard focus -->
-        <Pane fx:id="playfield" prefWidth="600" prefHeight="600" focusTraversable="true">
+    <StackPane prefHeight="600" prefWidth="800">
 
-            <!-- <ImageView fitWidth="600" fitHeight="600" preserveRatio="false" smooth="true" pickOnBounds="false">
-                <image>
-                    <Image url="@img/spacepong_background.jpg"/>
-                </image>
-            </ImageView> -->
+        <Pane fx:id="playfield" focusTraversable="true" prefHeight="600" prefWidth="600" style="-fx-background-color: #1D063B;">
 
-            <Rectangle x="0" y="0" width="600" height="600"
-                       fill="transparent" stroke="#00FF66" strokeWidth="2" />
+            <Rectangle arcHeight="8" arcWidth="8" fill="transparent" height="600" layoutX="15.0" stroke="#BDDDDD" strokeWidth="2" width="600" />
 
-            <Line fx:id="centerLine" startX="300" startY="0" endX="300" endY="600" stroke="#00FF66" strokeWidth="2"/>
+            <Line fx:id="centerLine" endX="300" endY="590" layoutX="-8.0" opacity="0.7" startX="300" startY="10" stroke="#00FF9C" strokeDashArray="10, 15" strokeWidth="3" />
 
-            <Label fx:id="scoreLeftLabel" layoutX="120" layoutY="260" text="0" textFill="#00FF66" opacity="0.35" mouseTransparent="true">
-                <font>
-                    <Font size="48"/>
-                </font>
+            <Label fx:id="scoreLeftLabel" layoutX="180" layoutY="240" mouseTransparent="true" text="0" textFill="#f8acff">
+                <font><Font size="60" /></font>
             </Label>
 
-            <Label fx:id="scoreRightLabel" layoutX="460" layoutY="260" text="0" textFill="#00FF66" opacity="0.35" mouseTransparent="true">
-                <font>
-                    <Font size="48"/>
-                </font>
+            <Label fx:id="scoreRightLabel" layoutX="390" layoutY="240" mouseTransparent="true" text="0" textFill="#61C89C">
+                <font><Font size="60" /></font>
             </Label>
 
-            <Rectangle fx:id="leftPaddle" width="10" height="80" layoutX="20" layoutY="260" fill="#00FF66"/>
-            <Rectangle fx:id="rightPaddle" width="10" height="80" layoutX="570" layoutY="260" fill="#00FF66" opacity="0.45"/>
+            <Rectangle fx:id="leftPaddle" fill="#00FF9C" height="80" layoutX="20" layoutY="260" width="10" />
 
-            <Circle fx:id="ball" layoutX="300" layoutY="300" radius="8" fill="#00FF66"/>
+            <Rectangle fx:id="rightPaddle" fill="#f8acff" height="80" layoutX="570" layoutY="260" width="10" />
+
+            <Circle fx:id="ball" fill="#fcfcfc" layoutX="292.0" layoutY="300.0" radius="8" />
 
         </Pane>
+
     </StackPane>
 
 </VBox>
